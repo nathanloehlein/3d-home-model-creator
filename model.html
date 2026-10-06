@@ -1,4 +1,4 @@
-<title>Property Model</title>
+<title>3D Home Model Creator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -962,7 +962,7 @@ const listItems = (items) => items.map((t) => { const li = document.createElemen
 function renderStatic() {
   $('title').textContent = P.name;
   $('meta').textContent = [P.address, P.meta].filter(Boolean).join(' · ');
-  document.title = `${P.name} · model`;
+  document.title = `${P.name} · 3D Home Model Creator`;
   $('scheme-sec').hidden = SCHEME_IDS.length < 2;
   $('tog-new').hidden = SCHEME_IDS.length < 2;
   $('tog-bear').hidden = !Object.values(SCH).some((s) => s.walls.some((w) => w.bearing));

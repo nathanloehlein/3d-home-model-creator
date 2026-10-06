@@ -1,4 +1,4 @@
-# Property model: project context
+# 3D Home Model Creator: project context
 
 A 3D model and floor plan of one property, with remodel schemes and a Home Assistant floor3d export, all driven by the DATA block in `model.html`. `README.md` documents the data format and the workflows; read it before editing.
 

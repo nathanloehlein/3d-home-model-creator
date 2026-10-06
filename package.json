@@ -1,5 +1,5 @@
 {
-  "name": "property-model",
+  "name": "3d-home-model-creator",
   "version": "1.0.0",
   "description": "A 3D model and floor plan of a house from one block of data, with remodel options and a Home Assistant 3D export.",
   "private": true,

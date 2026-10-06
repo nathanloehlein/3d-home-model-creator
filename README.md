@@ -1,8 +1,8 @@
-# Property Model
+# 3D Home Model Creator
 
 A 3D model and floor plan of a house, built from one block of data in one HTML file. Draw remodel options against it, and the page works out what each one builds, fills in and takes out. The same data also exports to a GLB for Home Assistant's [floor3d-card](https://github.com/adizanni/floor3d-card).
 
-**[Live demo](https://nathanloehlein.github.io/property-model/)** (an example house with three remodel options)
+**[Live demo](https://nathanloehlein.github.io/3d-home-model-creator/)** (an example house with three remodel options)
 
 ![Plan A in 3D: new walls in blue, the bearing wall in rust](docs/plan-a-3d.png)
 ![Plan B floor plan: an addition, with the old window filled in](docs/plan-b-plan.png)
@@ -26,7 +26,7 @@ A 3D model and floor plan of a house, built from one block of data in one HTML f
 Needs Node 20 or later.
 
 ```bash
-git clone https://github.com/nathanloehlein/property-model.git my-house
+git clone https://github.com/nathanloehlein/3d-home-model-creator.git my-house
 cd my-house
 npm start
 ```

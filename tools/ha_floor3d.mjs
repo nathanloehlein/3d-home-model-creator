@@ -117,7 +117,7 @@ const lin = (hex) => [16, 8, 0].map((s) => {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 });
 const MATS = { gdoor: { color: PAL.garageDoor ?? 0xd9d8d2 }, glass: { color: PAL.glass, alpha: 0.35 }, lawn: { color: PAL.lawn }, fixture: { color: 0xfff4d6, emissive: 0x6b5d3a } };
-const gltf = { asset: { version: '2.0', generator: 'property-model/tools/ha_floor3d.mjs' }, scene: 0, scenes: [{ nodes: [] }], nodes: [], meshes: [], materials: [], accessors: [], bufferViews: [], buffers: [] };
+const gltf = { asset: { version: '2.0', generator: '3d-home-model-creator/tools/ha_floor3d.mjs' }, scene: 0, scenes: [{ nodes: [] }], nodes: [], meshes: [], materials: [], accessors: [], bufferViews: [], buffers: [] };
 const matIndex = new Map();
 function material(key) {
   if (!matIndex.has(key)) {

@@ -1,0 +1,12 @@
+# generated
+_site/
+_preview.html
+ha/*.glb
+
+# Home Assistant credentials (HA_URL / HA_TOKEN)
+.env
+*.env
+
+node_modules/
+.DS_Store
+Thumbs.db

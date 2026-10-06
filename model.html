@@ -1,0 +1,1189 @@
+<title>Property Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: framed model "sheet" on the left, drafting title-block panel on the right; stacks to model-over-panel on phones */
+:root {
+  --paper: #f1f1ec;
+  --panel: #fbfbf8;
+  --ink: #1d2528;
+  --ink-2: #58625f;
+  --rule: #d5d6cd;
+  --accent: #b5542d;
+  --new: #2f6f9f;          /* new work in a remodel scheme */
+  --scene-bg: #e7e9e3;
+  --ground: #d8dccf;
+  --lot: #6c7869;
+  --label-bg: rgba(251, 251, 248, 0.92);
+  --f-wood: #efe4d2; --f-wet: #dce8ec; --f-closet: #f4efe6; --f-mech: #e3e1db; --f-carpet: #ece7de; --f-tile: #e8e6e0; --f-conc: #dcdad4;
+  --font-ui: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-narrow: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #131719; --panel: #1a1f22; --ink: #e5e8e3; --ink-2: #9aa5a2; --rule: #2d3538;
+    --accent: #db7c55; --new: #6aaad8; --scene-bg: #181d1f; --ground: #222a26; --lot: #8e9c8b;
+    --label-bg: rgba(26, 31, 34, 0.9);
+    --f-wood: #3a3127; --f-wet: #243339; --f-closet: #2c2925; --f-mech: #2d2d2a; --f-carpet: #33302b; --f-tile: #2e2e2b; --f-conc: #2f2f2d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #131719; --panel: #1a1f22; --ink: #e5e8e3; --ink-2: #9aa5a2; --rule: #2d3538;
+  --accent: #db7c55; --new: #6aaad8; --scene-bg: #181d1f; --ground: #222a26; --lot: #8e9c8b;
+  --label-bg: rgba(26, 31, 34, 0.9);
+  --f-wood: #3a3127; --f-wet: #243339; --f-closet: #2c2925; --f-mech: #2d2d2a; --f-carpet: #33302b; --f-tile: #2e2e2b; --f-conc: #2f2f2d;
+  color-scheme: dark;
+}
+html { height: 100%; box-sizing: border-box; }
+[hidden] { display: none !important; } /* .seg and section set display, which would otherwise beat the hidden attribute */
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  height: 100%; margin: 0; padding-block: 16px; padding-inline: 16px;
+  background: var(--paper); color: var(--ink); font: 400 14px/1.45 var(--font-ui);
+}
+.app { height: 100%; display: grid; gap: 14px; grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); }
+@media (min-width: 880px) {
+  .app { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) 340px; }
+}
+.stage {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  border: 1px solid var(--rule); background: var(--scene-bg); border-radius: 2px;
+}
+.stage canvas { display: block; touch-action: none; }
+.plan2d { position: absolute; inset: 0; background: var(--panel); overflow: auto; }
+.plan2d svg { display: block; width: 100%; height: 100%; min-width: 520px; min-height: 420px; }
+.hint {
+  position: absolute; left: 10px; bottom: 10px; max-width: calc(100% - 20px);
+  font: 400 11px/1.3 var(--font-mono); color: var(--ink-2); background: var(--label-bg);
+  padding: 4px 8px; border: 1px solid var(--rule); pointer-events: none;
+}
+.fail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--ink-2); }
+
+.sheet {
+  min-width: 0; min-height: 0; overflow: auto; background: var(--panel);
+  border: 1px solid var(--rule); border-radius: 2px; display: flex; flex-direction: column;
+}
+.sheet section, .sheet header { padding: 14px 16px; border-top: 1px solid var(--rule); display: grid; gap: 10px; }
+.sheet header { border-top: 0; gap: 4px; }
+.eyebrow { margin: 0; font: 500 11px/1 var(--font-mono); color: var(--accent); letter-spacing: 0.04em; }
+h1 { margin: 0; font: 650 20px/1.2 var(--font-ui); text-wrap: balance; }
+.meta { margin: 0; color: var(--ink-2); font-size: 12.5px; }
+h2 {
+  margin: 0; font: 600 11px/1 var(--font-narrow); text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--ink-2);
+}
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+button {
+  font: 500 13px/1 var(--font-ui); padding: 7px 10px; border: 1px solid var(--rule);
+  background: transparent; color: var(--ink); border-radius: 3px; cursor: pointer;
+}
+button:hover { border-color: var(--ink-2); }
+button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg.scheme button { flex: 1 1 auto; padding: 9px 7px; font-weight: 600; font-size: 12.5px; }
+.summary { margin: 0; font-size: 13px; color: var(--ink); }
+.cutrow { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+.cutrow output { font: 500 12px var(--font-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.toggles { display: grid; gap: 7px; }
+.tog { display: flex; align-items: center; gap: 9px; font-size: 13px; cursor: pointer; }
+.tog input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+.tog .key { width: 18px; height: 4px; border-radius: 1px; background: var(--accent); margin-left: auto; }
+.tog .key.new { background: var(--new); }
+
+.prog { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.prog td { padding: 4px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.prog td:last-child { text-align: right; font: 400 12px/1.4 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; padding-left: 10px; }
+.prog tr.new td:first-child::after { content: ' new'; font: 600 9.5px var(--font-narrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--new); }
+.scope { margin: 0; padding-left: 18px; display: grid; gap: 5px; font-size: 12.5px; }
+.scope li::marker { color: var(--ink-2); font: 500 11px var(--font-mono); }
+.checks { margin: 0; padding-left: 16px; display: grid; gap: 5px; font-size: 12.5px; color: var(--ink-2); }
+
+.sel { display: grid; gap: 6px; font-size: 13px; }
+.sel .nm { font: 600 15px/1.25 var(--font-ui); }
+.sel .sub { color: var(--ink-2); font-size: 12px; }
+.sel dl, .facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+.sel dt, .facts dt { color: var(--ink-2); font-size: 12px; }
+.sel dd, .facts dd { margin: 0; font: 400 12px/1.4 var(--font-mono); font-variant-numeric: tabular-nums; min-width: 0; }
+.empty { color: var(--ink-2); font-size: 13px; margin: 0; }
+.legend { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+.legend li { display: flex; align-items: center; gap: 9px; }
+.sw { flex: none; width: 14px; height: 14px; border-radius: 2px; border: 1px solid var(--rule); }
+.notes { margin: 0; padding-left: 16px; display: grid; gap: 5px; color: var(--ink-2); font-size: 12.5px; }
+
+/* scene labels: outer div is positioned by CSS2DRenderer, inner .lbl is ours to style */
+.lbl {
+  font: 600 11px/1.15 var(--font-ui); color: var(--ink); background: var(--label-bg);
+  border: 1px solid var(--rule); padding: 3px 6px; border-radius: 2px; white-space: nowrap; text-align: center;
+}
+.lbl span { display: block; font: 400 10px/1.3 var(--font-mono); color: var(--ink-2); }
+.lbl.site { background: transparent; border: 0; font: 600 10px/1.2 var(--font-narrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.lbl.newlbl { border-color: var(--new); }
+@media (max-width: 879px) { .lbl { font-size: 10px; padding: 2px 4px; } .lbl span { display: none; } }
+
+/* 2D plan */
+.p-rf { stroke: none; cursor: pointer; }
+.p-rf:hover { filter: brightness(0.96); }
+.p-rf.sel { stroke: var(--accent); stroke-width: 2; }
+.f-woodMain { fill: var(--f-wood); } .f-wet { fill: var(--f-wet); } .f-closet { fill: var(--f-closet); } .f-mech { fill: var(--f-mech); }
+.f-carpet { fill: var(--f-carpet); } .f-tile { fill: var(--f-tile); } .f-conc { fill: var(--f-conc); }
+.p-w { fill: var(--ink); } .p-w.part { fill: var(--ink-2); } .p-w.bear { fill: var(--accent); } .p-w.new { fill: var(--new); }
+.p-rem { fill: none; stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; }
+.p-rem.bear { stroke: var(--accent); stroke-width: 1.4; }
+.p-win { fill: var(--panel); stroke: var(--ink); stroke-width: 0.8; }
+.p-win.new { stroke: var(--new); stroke-width: 1.4; }
+.p-ghost { fill: none; stroke: var(--ink-2); stroke-width: 0.8; stroke-dasharray: 4 3; opacity: 0.6; }
+.p-fx { fill: none; stroke: var(--ink-2); stroke-width: 0.8; }
+.p-fxt { font: 500 7.5px var(--font-mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.p-rl { font: 600 10.5px var(--font-narrow); letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink); text-anchor: middle; pointer-events: none; }
+.p-ra { font: 400 9px var(--font-mono); fill: var(--ink-2); text-anchor: middle; pointer-events: none; }
+.p-dm { stroke: var(--ink-2); stroke-width: 0.7; fill: none; }
+.p-dt { font: 400 9px var(--font-mono); fill: var(--ink-2); text-anchor: middle; }
+.p-title { font: 650 13px var(--font-ui); fill: var(--ink); }
+.p-sub { font: 400 9.5px var(--font-mono); fill: var(--ink-2); }
+.p-arrow { fill: var(--ink-2); } .p-arrow.true { fill: var(--accent); }
+.p-bg { fill: var(--panel); }
+</style>
+
+<div class="app">
+  <main class="stage" id="stage" role="img" aria-label="Interactive 3D model and floor plan of the house">
+    <div class="plan2d" id="plan2d" hidden></div>
+    <div class="hint" id="hint">Drag to orbit · right-drag to pan · scroll to zoom · click a room</div>
+  </main>
+
+  <aside class="sheet" aria-label="Model controls">
+    <header>
+      <p class="eyebrow" id="eyebrow">A-0 · EXISTING CONDITIONS</p>
+      <h1 id="title"></h1>
+      <p class="meta" id="meta"></p>
+    </header>
+
+    <section id="scheme-sec" hidden>
+      <h2>Scheme</h2>
+      <div class="seg scheme" role="group" aria-label="Scheme" id="schemes"></div>
+      <p class="summary" id="summary"></p>
+    </section>
+
+    <section>
+      <h2>View</h2>
+      <div class="seg" role="group" aria-label="Drawing type">
+        <button type="button" id="m-3d" data-mode="3d" aria-pressed="true">3D model</button>
+        <button type="button" id="m-2d" data-mode="2d" aria-pressed="false">Floor plan</button>
+      </div>
+      <div class="seg" role="group" aria-label="Floor shown in the plan" id="plans" hidden></div>
+      <div class="seg" role="group" aria-label="Camera views" id="views">
+        <button type="button" data-view="aerial" aria-pressed="false">Aerial</button>
+        <button type="button" data-view="front" aria-pressed="false">Front</button>
+        <button type="button" data-view="rear" aria-pressed="false">Rear</button>
+        <button type="button" data-view="doll" aria-pressed="true">Dollhouse</button>
+        <button type="button" data-view="plan" aria-pressed="false">Top</button>
+      </div>
+      <div class="cutrow"><label for="cut">Cut height</label><output id="cutv" for="cut">Full</output></div>
+      <input type="range" id="cut" min="0.5" max="15" step="0.1" value="7">
+    </section>
+
+    <section>
+      <h2>Layers</h2>
+      <div class="toggles">
+        <label class="tog" id="tog-new" hidden><input type="checkbox" id="t-new" checked> New walls and windows <span class="key new" aria-hidden="true"></span></label>
+        <label class="tog" id="tog-bear" hidden><input type="checkbox" id="t-bear" checked> Bearing walls <span class="key" aria-hidden="true"></span></label>
+        <label class="tog"><input type="checkbox" id="t-labels" checked> Room labels</label>
+        <label class="tog"><input type="checkbox" id="t-site" checked> Site, paving and lot line</label>
+        <label class="tog"><input type="checkbox" id="t-lights"> Light positions (Home Assistant)</label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Rooms</h2>
+      <table class="prog"><tbody id="prog"></tbody></table>
+    </section>
+
+    <section id="scope-sec" hidden>
+      <h2>Work involved</h2>
+      <ol class="scope" id="scope"></ol>
+    </section>
+
+    <section id="checks-sec" hidden>
+      <h2>Check before committing</h2>
+      <ul class="checks" id="checks"></ul>
+    </section>
+
+    <section aria-live="polite">
+      <h2>Selected room</h2>
+      <div id="sel" class="sel"><p class="empty">Click or tap a room to see its size, level and ceiling.</p></div>
+    </section>
+
+    <section>
+      <h2>Floors</h2>
+      <ul class="legend" id="legend"></ul>
+    </section>
+
+    <section id="facts-sec">
+      <h2>Facts</h2>
+      <dl class="facts" id="facts"></dl>
+    </section>
+
+    <section id="notes-sec">
+      <h2>Notes</h2>
+      <ul class="notes" id="notes"></ul>
+    </section>
+  </aside>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* DATA:BEGIN */
+// Everything about the property lives between DATA:BEGIN and DATA:END; tools/ha_floor3d.mjs reads the same block.
+// Plan feet: x = plan east, z = plan south, y = feet above the main floor. Plan north is up in the 2D plan.
+const LV = { main: 0, grade: -1.5 };       // floor levels; each room names one with lvl
+const LEVELS = { main: 'Main floor' };     // what the selected-room panel says for each level
+// Floor plans: which levels each 2D plan shows. Walls, rooms and fixtures say their level with lvl (default 'main').
+const PLANS = { main: { name: 'Main floor', lvls: ['main'] } };
+const WALL_H = 8;                          // default wall top and flat-ceiling height
+const PAL = {
+  woodMain: 0xc8a57a, carpet: 0xb9ad9a, tile: 0xc9c6bd, wet: 0x93aebb, closet: 0xddd0b8, mech: 0x9d9a92,
+  siding: 0x2f3a40, wall: 0xebe9e3, bearing: 0xb5542d, newWall: 0x2f6f9f, glass: 0x9cc4d8, roof: 0xc3c7c4, ceiling: 0xf1f0eb, found: 0x8e918b, door: 0x9b3a2e,
+  conc: 0xb9b7b0, deck: 0x8a6a4c, garageDoor: 0xd9d8d2, gravel: 0xbdb7aa, lawn: 0xb7c4a3, asphalt: 0x8b8f8e,
+  cab: 0xe7e3da, counter: 0xd6d3cb, stone: 0xb8b9b4, steel: 0xaab1b5, dark: 0x2a2d2f, appl: 0xf4f4f1, wood: 0x9c7a58, fabric: 0x7f8c8f, bed: 0xe6dfd2,
+};
+const FLOOR_TEXT = { woodMain: 'Wood', carpet: 'Carpet', tile: 'Tile', wet: 'Baths and laundry', closet: 'Closets', mech: 'Mechanical', conc: 'Concrete' };
+// Openings along a wall, measured along it: a..b in plan feet, sill/head above the wall's base.
+const WIN = (a, b, sill = 3, head = 6.8) => ({ a, b, sill, head, fill: 'glass' });
+const DOOR = (a, b, head = 6.8) => ({ a, b, sill: 0, head, fill: 'door' });
+const OPEN = (a, b, head = 6.8) => ({ a, b, sill: 0, head });
+const GDOOR = (a, b, head = 7) => ({ a, b, sill: 0, head, fill: 'gdoor' });
+// Fixtures: label, [x0, z0, x1, z1], height, material, base height
+const fx = (t, r, h, m, y0 = 0, extra = {}) => ({ t, r, h, m, y0, ...extra });
+// For schemes: copy a list from the existing house by id. { id: null } drops that item, { id: {...} } changes fields.
+const revise = (list, edits) => list.filter((it) => edits[it.id] !== null).map((it) => (edits[it.id] ? { ...it, ...edits[it.id] } : it));
+
+// EXAMPLE DATA: a 40' x 28' single-storey house. Replace it with the real property.
+// Exterior walls carry out: -1 (outside is toward -x / -z) or 1 (toward +x / +z); the wall is built inward from its line.
+// ids are optional; they let a scheme revise() a wall, room or fixture. bearing: true marks a wall that holds the roof up.
+const PROPERTY = {
+  name: 'Example house',
+  address: 'Replace with the property address',
+  meta: 'Example data. Replace the walls, rooms and site in the PROPERTY block with measurements of the real property.',
+  trueNorth: 0, // degrees clockwise from plan north
+  facts: [['Footprint', '40′ × 28′ (example)'], ['Floor area', '1,120 ft² gross (example)']],
+  notes: ['Interior walls are measured by hand, so expect a few inches of error.'],
+  ext: [
+    { id: 'north', x0: 0, z0: 0, x1: 40, z1: 0, out: -1, open: [WIN(4, 10), WIN(28, 34)] },
+    { id: 'south', x0: 0, z0: 28, x1: 40, z1: 28, out: 1, open: [WIN(3, 9), DOOR(16, 19), WIN(34, 38)] },
+    { id: 'west', x0: 0, z0: 0, x1: 0, z1: 28, out: -1, open: [WIN(4, 10), WIN(19, 25)] },
+    { id: 'east', x0: 40, z0: 0, x1: 40, z1: 28, out: 1, open: [WIN(4, 10)] },
+  ],
+  parts: [
+    { id: 'spine', x0: 24, z0: 0.5, x1: 24, z1: 27.5, bearing: true, open: [OPEN(10, 12.8), OPEN(22, 24.6)] },
+    { id: 'living-s', x0: 0, z0: 16, x1: 24, z1: 16, open: [OPEN(15, 23)] },
+    { id: 'bed-2-e', x0: 14, z0: 16, x1: 14, z1: 28, open: [OPEN(18, 20.8)] },
+    { id: 'bed-1-s', x0: 24, z0: 14, x1: 40, z1: 14, open: [OPEN(34, 36.6)] },
+    { id: 'bath-e', x0: 32, z0: 14, x1: 32, z1: 28 },
+  ],
+  rooms: [
+    { id: 'living', name: 'Living / kitchen', lvl: 'main', mat: 'woodMain', rects: [[0, 0, 24, 16]], at: [10, 10] },
+    { id: 'bed-1', name: 'Bedroom 1', lvl: 'main', mat: 'carpet', rects: [[24, 0, 40, 14]], at: [32, 7] },
+    { id: 'bed-2', name: 'Bedroom 2', lvl: 'main', mat: 'carpet', rects: [[0, 16, 14, 28]], at: [7, 22] },
+    { id: 'hall', name: 'Entry / hall', lvl: 'main', mat: 'woodMain', rects: [[14, 16, 24, 28]], at: [19, 22] },
+    { id: 'bath', name: 'Bath', lvl: 'main', mat: 'wet', rects: [[24, 14, 32, 28]], at: [28, 21] },
+    { id: 'utility', name: 'Utility', lvl: 'main', mat: 'mech', rects: [[32, 14, 40, 28]], at: [36, 21] },
+  ],
+  // fixed: true keeps a fixture in the Shell scheme (furnace, panel, meters: things that stay put)
+  fixtures: [
+    fx('', [13, 0.25, 23.75, 2.25], 3, 'counter'),
+    fx('Island', [15, 6, 21, 9], 3, 'stone'),
+    fx('Bed', [30, 0.5, 35.5, 7], 1.9, 'bed', 0, { id: 'bed-1-bed' }),
+    fx('Bed', [0.5, 22, 5, 27.5], 1.9, 'bed'),
+    fx('Tub', [24.3, 25, 29.5, 27.7], 1.8, 'appl'),
+    fx('Furn', [37.5, 25.2, 39.6, 27.6], 5.5, 'steel', 0, { fixed: true }),
+  ],
+  foundation: [[0, 0, 40, 28]],
+  roofs: [{ r: [-1.5, -1.5, 41.5, 29.5], top: 9.6, th: 0.6 }],
+  site: {
+    ground: [-45, -40, 85, 75],
+    lot: [[-20, -25], [60, -25], [60, 55], [-20, 55]],
+    pads: [
+      { mat: 'conc', r: [14.5, 28, 20.5, 31], y1: -0.25 },
+      { mat: 'conc', r: [16, 31, 19, 55] },
+      { mat: 'asphalt', r: [26, 28.5, 38, 55] },
+      { mat: 'asphalt', r: [-45, 55, 85, 75] },
+    ],
+    labels: [['Street', [20, 0, 64]], ['Lot line', [-23, 0, 15]]],
+  },
+  // Home Assistant light positions: [object name, x, z, height of the disc's top]. tools/ha_floor3d.mjs turns each into a
+  // small ceiling disc in the GLB, and the floor3d dashboard binds an entity to it by name.
+  lights: [
+    ['light_living', 7, 8, WALL_H], ['light_kitchen', 18, 5, WALL_H], ['light_bed_1', 32, 7, WALL_H], ['light_bed_2', 7, 22, WALL_H],
+    ['light_hall', 19, 22, WALL_H], ['light_bath', 28, 20, WALL_H], ['light_utility', 36, 21, WALL_H],
+    ['light_ext_front', 17.5, 28.8, 7.2], ['light_ext_back', 20, -0.8, 7.2],
+  ],
+  dims: [], // extra dimension strings: ['h', x0, x1, z, label] or ['v', z0, z1, x, label]
+};
+
+// Remodel schemes (optional; delete them all and the page is just the existing house). Each one starts from PROPERTY and
+// replaces only the lists it names: ext, parts, rooms, fixtures, foundation, roofs, dims. Walls are compared with the
+// existing ones, so what's new, filled in or taken out is worked out for you; rooms with a new id or new rects show as
+// new. shell: true starts from the house with every inside wall gone. scope = work involved, checks = open questions.
+// EXAMPLE schemes for the example house.
+const SCHEMES = {
+  shell: { name: 'Shell', shell: true },
+  'plan-a': {
+    name: 'Plan A',
+    summary: 'Open plan. The living room opens to the hall and, through the bearing wall, to bedroom 1, which becomes a den. The utility room becomes a mudroom with laundry and its own outside door.',
+    ext: revise(PROPERTY.ext, {
+      south: { open: [WIN(3, 9), DOOR(16, 19)] },
+      east: { open: [WIN(4, 10), DOOR(20, 23)] },
+    }),
+    parts: [
+      ...revise(PROPERTY.parts, {
+        spine: { open: [OPEN(2, 11, 7.5), OPEN(22, 24.6)] },
+        'living-s': { x1: 14, open: [] },
+      }),
+      { id: 'mud-cl', x0: 32, z0: 24, x1: 40, z1: 24, open: [OPEN(34, 37)] },
+    ],
+    rooms: [
+      ...revise(PROPERTY.rooms, { 'bed-1': null, utility: null }),
+      { id: 'den', name: 'Den', sub: 'was bedroom 1', lvl: 'main', mat: 'woodMain', rects: [[24, 0, 40, 14]], at: [32, 6], note: 'Open to the living room through a 9′ cased opening in the bearing wall.' },
+      { id: 'mud', name: 'Mudroom', sub: 'laundry · was the utility room', lvl: 'main', mat: 'wet', rects: [[32, 14, 40, 24]], at: [36, 16.5] },
+      { id: 'mud-cl', name: 'Coats + furnace', lvl: 'main', mat: 'closet', rects: [[32, 24, 40, 28]] },
+    ],
+    fixtures: [
+      ...revise(PROPERTY.fixtures, { 'bed-1-bed': null }),
+      fx('Sofa', [26, 8.5, 33, 11.5], 2.6, 'fabric'),
+      fx('W', [32.2, 19, 34.7, 21.4], 3, 'appl'),
+      fx('D', [32.2, 21.5, 34.7, 23.6], 3, 'appl'),
+    ],
+    scope: [
+      'Take out the wall between the living room and the hall.',
+      'Open the bearing wall between the living room and bedroom 1 with a 9′ cased opening on a header. The old door is filled in.',
+      'Utility becomes a mudroom: a new outside door on the east wall, the south window filled in, and a coat closet around the furnace.',
+    ],
+    checks: [
+      'Engineer: the header over the 9′ opening in the bearing wall.',
+      'This leaves one bedroom. Is that OK for resale?',
+      'Dryer vent route out the east wall.',
+    ],
+  },
+  'plan-b': {
+    name: 'Plan B',
+    summary: 'A 12′ × 8′ addition on the north side of bedroom 1 for an en-suite. The old north wall stays as the wall between them: its window is filled in and a door goes in at the east end.',
+    ext: [
+      ...revise(PROPERTY.ext, { north: { x1: 28, open: [WIN(4, 10)] }, east: { z0: -8 } }),
+      { id: 'add-n', x0: 28, z0: -8, x1: 40, z1: -8, out: -1, open: [WIN(31, 37, 4.5)] },
+      { id: 'add-w', x0: 28, z0: -8, x1: 28, z1: 0, out: -1 },
+    ],
+    parts: [...PROPERTY.parts, { id: 'suite', x0: 28, z0: 0.25, x1: 40, z1: 0.25, t: 0.5, open: [OPEN(36.6, 39.2)] }],
+    rooms: [
+      ...PROPERTY.rooms,
+      { id: 'ensuite', name: 'En-suite', lvl: 'main', mat: 'wet', rects: [[28, -8, 40, 0]], at: [34, -3.5], note: 'Tub under a high window, a double vanity, and the WC by the door.' },
+    ],
+    fixtures: [
+      ...PROPERTY.fixtures,
+      fx('Tub', [28.6, -7.6, 33.8, -5], 1.8, 'appl'),
+      fx('Vanity', [34.5, -7.7, 39.4, -5.7], 2.8, 'cab'),
+      fx('WC', [28.6, -2.4, 30.6, -0.8], 1.3, 'appl'),
+    ],
+    foundation: [...PROPERTY.foundation, [28, -8, 40, 0]],
+    roofs: [...PROPERTY.roofs, { r: [26.5, -9.5, 41.5, -1.5], top: 9.6, th: 0.6 }],
+    scope: [
+      'Foundation, walls and roof for a 12′ × 8′ addition, tied into the main roof.',
+      'The old north wall stays between the bedroom and the en-suite. Its window is filled in and a new door cut at the east end.',
+      'The east wall runs on 8′ to the north.',
+    ],
+    checks: [
+      'Setback from the north lot line, and lot coverage.',
+      'Drain run from the en-suite to the main stack.',
+    ],
+  },
+};
+/* DATA:END */
+
+const P = PROPERTY;
+const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+
+/* WALLS:BEGIN */
+// Shared by 3D, 2D and the GLB export: where a wall sits and which stretches are solid.
+function wallGeom(w) {
+  const horiz = w.z0 === w.z1;
+  const a0 = Math.min(horiz ? w.x0 : w.z0, horiz ? w.x1 : w.z1);
+  const a1 = Math.max(horiz ? w.x0 : w.z0, horiz ? w.x1 : w.z1);
+  const c = horiz ? w.z0 : w.x0;
+  const t = w.t ?? (w.out ? 0.5 : 0.35);
+  const yb = w.yb ?? LV[w.lvl ?? 'main'] ?? 0;
+  const n0 = w.out ? Math.min(c, c - w.out * t) : c - t / 2;
+  const n1 = w.out ? Math.max(c, c - w.out * t) : c + t / 2;
+  const ops = (w.open || []).map((o) => ({ sill: yb, head: yb + 6.75, ...o })).sort((p, q) => p.a - q.a);
+  return { horiz, a0, a1, c, t, yb, n0, n1, ops };
+}
+// newMeshes (optional) collects [mesh, usual material] for each stretch of new work, so the page can recolour it.
+function buildWall(w, group, newMeshes) {
+  const g = wallGeom(w);
+  const top = typeof w.top === 'function' ? w.top : () => (w.top ?? g.yb + WALL_H);
+  const inner = w.bearing ? M.bearing : M.wall;
+  let layers;
+  let core;
+  if (w.out) {
+    // exterior: a siding skin on the outside face, wall colour inside
+    const s = w.out;
+    const skin = g.c - s * 0.12;
+    const back = g.c - s * g.t;
+    layers = [[Math.min(g.c, skin), Math.max(g.c, skin), M.siding], [Math.min(skin, back), Math.max(skin, back), inner]];
+    core = [Math.min(skin, back), Math.max(skin, back)];
+  } else {
+    layers = [[g.n0, g.n1, inner]];
+    core = [g.n0, g.n1];
+  }
+  const put = (mat, n0, n1, sa, sb, bot, tp) => (g.horiz
+    ? block(group, mat, sa, sb, n0, n1, bot, tp)
+    : block(group, mat, n0, n1, sa, sb, bot, tp));
+  const fresh = w.fresh || []; // sorted [a, b] stretches of new work, set by the scheme diff
+  for (const [n0, n1, mat] of layers) {
+    const solid = (sa, sb, bot, tp) => {
+      let pos = sa;
+      for (const [p, q] of fresh) {
+        if (q <= pos || p >= sb) continue;
+        if (p > pos) put(mat, n0, n1, pos, p, bot, tp);
+        const m = put(M.newWall, n0, n1, Math.max(p, pos), Math.min(q, sb), bot, tp);
+        newMeshes?.push([m, mat]);
+        pos = Math.min(q, sb);
+      }
+      if (pos < sb) put(mat, n0, n1, pos, sb, bot, tp);
+    };
+    let cur = g.a0;
+    for (const o of g.ops) {
+      if (o.a > cur) solid(cur, o.a, g.yb, top);
+      if (o.sill > g.yb + 0.01) solid(o.a, o.b, g.yb, o.sill);
+      const topHere = g.horiz ? Math.max(top(o.a), top(o.b)) : top((n0 + n1) / 2);
+      if (topHere > o.head + 0.01) solid(o.a, o.b, o.head, top);
+      cur = o.b;
+    }
+    if (cur < g.a1) solid(cur, g.a1, g.yb, top);
+  }
+  const mid = (core[0] + core[1]) / 2;
+  for (const o of g.ops) {
+    if (o.fill === 'glass') put(M.glass, mid - 0.03, mid + 0.03, o.a, o.b, o.sill, o.head);
+    if (o.fill === 'door') put(M.door, mid - 0.08, mid + 0.08, o.a + 0.05, o.b - 0.05, o.sill, o.head);
+    if (o.fill === 'gdoor') put(M.gdoor, mid - 0.08, mid + 0.08, o.a + 0.05, o.b - 0.05, o.sill, o.head);
+  }
+}
+/* WALLS:END */
+
+/* SCHEME:BEGIN */
+// Turns SCHEMES into complete layouts, then compares each one's walls with the existing house to find what is built,
+// filled in or taken out, so the data never has to say. Needs the DATA and WALLS blocks only: tools/ha_floor3d.mjs
+// and tools/scheme.test.mjs eval it too.
+const LAYOUT_KEYS = ['ext', 'parts', 'rooms', 'fixtures', 'foundation', 'roofs', 'dims'];
+const SHELL_SUMMARY = 'Every inside wall and fixture taken out, down to the outside walls and the floor levels. Dashed lines are the walls that came out; the rust ones were bearing, so they need a beam or posts if they go.';
+// Spans are [a, b] stretches along a wall, in plan feet.
+function mergeSpans(spans) {
+  const out = [];
+  for (const [a, b] of spans.filter(([p, q]) => q - p > 0.01).sort((p, q) => p[0] - q[0])) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1] + 0.01) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+function cutSpans(spans, cuts) {
+  let out = mergeSpans(spans);
+  for (const [p, q] of mergeSpans(cuts)) {
+    out = out.flatMap(([a, b]) => (q <= a || p >= b ? [[a, b]] : [[a, p], [q, b]].filter(([x, y]) => y - x > 0.01)));
+  }
+  return out;
+}
+const clipSpans = (spans, a0, a1) => mergeSpans(spans.map(([a, b]) => [Math.max(a, a0), Math.min(b, a1)]));
+// Same wall: same direction and level, and the thicknesses overlap. Matching on thickness rather than the drawn line
+// means an old outside wall kept as an inside wall (an addition) still counts as the same wall.
+function sameWall(x, y) {
+  return x.g.horiz === y.g.horiz && (x.w.lvl ?? 'main') === (y.w.lvl ?? 'main')
+    && Math.min(x.g.n1, y.g.n1) - Math.max(x.g.n0, y.g.n0) > 0.05;
+}
+// walls: the after list, each with fresh (new stretches plus filled-in openings) and its openings tagged isNew.
+// removed: the stretches of before walls that nothing in after covers.
+function diffWalls(before, after) {
+  const B = before.map((w) => ({ w, g: wallGeom(w) }));
+  const A = after.map((w) => ({ w, g: wallGeom(w) }));
+  const walls = A.map((x) => {
+    const olds = B.filter((y) => sameWall(x, y));
+    const oldOps = olds.flatMap((y) => y.g.ops);
+    const whole = [[x.g.a0, x.g.a1]];
+    const added = cutSpans(whole, olds.map((y) => [y.g.a0, y.g.a1]));
+    const filled = cutSpans(clipSpans(oldOps.map((o) => [o.a, o.b]), x.g.a0, x.g.a1), x.g.ops.map((o) => [o.a, o.b]));
+    const open = (x.w.open || []).map((o) => ({
+      ...o,
+      isNew: o.isNew ?? !oldOps.some((p) => Math.abs(p.a - o.a) < 0.05 && Math.abs(p.b - o.b) < 0.05 && p.fill === o.fill),
+    }));
+    return { ...x.w, open, fresh: x.w.isNew ? whole : mergeSpans([...added, ...filled]) };
+  });
+  const removed = B.flatMap((y) => cutSpans([[y.g.a0, y.g.a1]], A.filter((x) => sameWall(x, y)).map((x) => [x.g.a0, x.g.a1]))
+    .map(([a, b]) => ({ ...y.g, a0: a, a1: b, lvl: y.w.lvl ?? 'main', bearing: !!y.w.bearing })));
+  return { walls, removed };
+}
+// The Shell: no inside walls, only fixed fixtures, and one room per level that keeps each old room's ceiling height.
+function shellLayout(P) {
+  const size = ([x0, z0, x1, z1]) => (x1 - x0) * (z1 - z0);
+  const area = (r) => r.rects.reduce((s, q) => s + size(q), 0);
+  const rooms = [...new Set(P.rooms.map((r) => r.lvl))].map((lvl) => {
+    const rs = P.rooms.filter((r) => r.lvl === lvl);
+    const rects = rs.flatMap((r) => r.rects.map(([x0, z0, x1, z1, h]) => [x0, z0, x1, z1, h ?? r.ceilH ?? WALL_H]));
+    const big = rects.reduce((p, q) => (size(q) > size(p) ? q : p));
+    const most = rs.reduce((p, q) => (area(q) > area(p) ? q : p));
+    return {
+      id: `shell-${lvl}`, name: LEVELS[lvl] ?? lvl, sub: 'every inside wall taken out', lvl, mat: most.mat, rects,
+      at: [(big[0] + big[2]) / 2, (big[1] + big[3]) / 2], ceil: 'As existing', isNew: false,
+    };
+  });
+  return { parts: [], fixtures: P.fixtures.filter((f) => f.fixed), rooms };
+}
+// Every scheme, starting with 'existing', as a full layout: { id, name, summary, ext, parts, rooms, fixtures,
+// foundation, roofs, dims, walls, removed, scope, checks }. walls = ext + parts with the diff applied.
+function resolveSchemes(P, schemes) {
+  const out = {};
+  for (const [id, s] of [['existing', { name: 'Existing', summary: 'The house as it stands.' }], ...Object.entries(schemes)]) {
+    const from = s.shell ? { ...P, ...shellLayout(P) } : P;
+    const lay = Object.fromEntries(LAYOUT_KEYS.map((k) => [k, s[k] ?? from[k] ?? []]));
+    const { walls, removed } = diffWalls([...P.ext, ...P.parts], [...lay.ext, ...lay.parts]);
+    const rooms = lay.rooms.map((r) => ({
+      ...r,
+      isNew: r.isNew ?? !P.rooms.some((o) => o.id === r.id && JSON.stringify(o.rects) === JSON.stringify(r.rects)),
+    }));
+    out[id] = {
+      ...s, ...lay, id, rooms, walls, removed,
+      summary: s.summary ?? (s.shell ? SHELL_SUMMARY : ''), scope: s.scope ?? [], checks: s.checks ?? [],
+    };
+  }
+  return out;
+}
+/* SCHEME:END */
+
+// SCHEMES is optional, so a property without any still works
+const SCH = resolveSchemes(P, typeof SCHEMES === 'undefined' ? {} : SCHEMES);
+const SCHEME_IDS = Object.keys(SCH);
+
+// ======================= 3D =======================
+const stage = document.getElementById('stage');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+} catch (err) {
+  stage.insertAdjacentHTML('beforeend', '<p class="fail">This browser could not start WebGL, so the 3D model cannot display here. The floor plan still works.</p>');
+}
+const has3D = !!renderer;
+const labelRenderer = new CSS2DRenderer();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 2500);
+let controls = null;
+if (has3D) {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.localClippingEnabled = true;
+  stage.prepend(renderer.domElement);
+  Object.assign(labelRenderer.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+  stage.appendChild(labelRenderer.domElement);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI * 0.495;
+  controls.minDistance = 8;
+  controls.maxDistance = 420;
+}
+
+// house extents across every scheme, used for the camera views, the 2D frame and the sun
+function extentOf(ext) {
+  const xs = ext.flatMap((w) => [w.x0, w.x1]);
+  const zs = ext.flatMap((w) => [w.z0, w.z1]);
+  return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+}
+const BX = extentOf(Object.values(SCH).flatMap((s) => s.ext));
+const CX = (BX.x0 + BX.x1) / 2;
+const CZ = (BX.z0 + BX.z1) / 2;
+const SPAN = Math.max(BX.x1 - BX.x0, BX.z1 - BX.z0, 20);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b4a6, 1.15));
+const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+sun.position.set(CX - SPAN, SPAN * 2.4, CZ + SPAN * 1.6);
+sun.target.position.set(CX, 0, CZ);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -SPAN * 2, right: SPAN * 2, top: SPAN * 2, bottom: -SPAN * 2, near: 1, far: SPAN * 8 });
+sun.shadow.bias = -0.0004;
+scene.add(sun, sun.target);
+
+const cutPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 7);
+const houseMat = (color, extra = {}) => new THREE.MeshStandardMaterial({
+  color, roughness: 0.86, metalness: 0, side: THREE.DoubleSide, clippingPlanes: [cutPlane], clipShadows: true, ...extra,
+});
+const siteMat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0, ...extra });
+const M = {
+  siding: houseMat(PAL.siding), wall: houseMat(PAL.wall), bearing: houseMat(PAL.bearing), newWall: houseMat(PAL.newWall),
+  glass: houseMat(PAL.glass, { transparent: true, opacity: 0.38, depthWrite: false }),
+  roof: houseMat(PAL.roof), ceiling: houseMat(PAL.ceiling), found: houseMat(PAL.found), door: houseMat(PAL.door),
+  gdoor: houseMat(PAL.garageDoor),
+  fixture: houseMat(0xfff4d6, { emissive: 0x6b5d3a }),
+};
+const FXM = {};
+for (const k of ['cab', 'counter', 'stone', 'steel', 'dark', 'appl', 'wood', 'fabric', 'bed']) FXM[k] = houseMat(PAL[k]);
+
+const houseGroup = new THREE.Group();
+const siteGroup = new THREE.Group();
+const lightGroup = new THREE.Group();
+scene.add(houseGroup, siteGroup, lightGroup);
+
+// Box whose top (and optionally bottom) varies with x, so walls and slabs can follow a roof slope.
+function slabGeo(x0, x1, z0, z1, bot, top) {
+  const B = typeof bot === 'function' ? bot : () => bot;
+  const T = typeof top === 'function' ? top : () => top;
+  const c = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+  const b = c.map(([x, z]) => [x, B(x), z]);
+  const t = c.map(([x, z]) => [x, T(x), z]);
+  const faces = [
+    [t[0], t[3], t[2], t[1]], [b[0], b[1], b[2], b[3]],
+    [b[0], t[0], t[1], b[1]], [b[1], t[1], t[2], b[2]],
+    [b[2], t[2], t[3], b[3]], [b[3], t[3], t[0], b[0]],
+  ];
+  const p = [];
+  for (const f of faces) p.push(...f[0], ...f[1], ...f[2], ...f[0], ...f[2], ...f[3]);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  g.computeVertexNormals();
+  return g;
+}
+function block(group, mat, x0, x1, z0, z1, bot, top) {
+  const m = new THREE.Mesh(slabGeo(x0, x1, z0, z1, bot, top), mat);
+  const solid = !mat.transparent;
+  m.castShadow = solid;
+  m.receiveShadow = solid;
+  group.add(m);
+  return m;
+}
+
+// ---------- Labels ----------
+function makeLabel(title, sub, pos, cls) {
+  const outer = document.createElement('div');
+  const inner = document.createElement('div');
+  inner.className = cls;
+  inner.textContent = title;
+  if (sub) {
+    const s = document.createElement('span');
+    s.textContent = sub;
+    inner.appendChild(s);
+  }
+  outer.appendChild(inner);
+  const obj = new CSS2DObject(outer);
+  obj.position.set(...pos);
+  scene.add(obj);
+  return obj;
+}
+
+// ---------- Rooms: areas ----------
+function netArea(rects) {
+  let gross = 0;
+  let perim = 0;
+  for (const [x0, z0, x1, z1] of rects) { gross += (x1 - x0) * (z1 - z0); perim += 2 * ((x1 - x0) + (z1 - z0)); }
+  const ov = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  const eq = (p, q) => Math.abs(p - q) < 1e-6;
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const [a0, a1, a2, a3] = rects[i];
+      const [b0, b1, b2, b3] = rects[j];
+      if (eq(a2, b0) || eq(a0, b2)) perim -= 2 * ov(a1, a3, b1, b3);
+      if (eq(a3, b1) || eq(a1, b3)) perim -= 2 * ov(a0, a2, b0, b2);
+    }
+  }
+  return gross - 0.18 * perim; // rects are wall centerlines, less a wall allowance
+}
+
+// ---------- Build the house: one group per scheme, only the chosen one visible ----------
+const built = {};
+for (const S of Object.values(SCH)) {
+  const group = new THREE.Group();
+  houseGroup.add(group);
+  const ctx = { group, floorMeshes: [], roomLabels: [], newMeshes: [], roomById: {} };
+  for (const [x0, z0, x1, z1] of S.foundation) block(group, M.found, x0, x1, z0, z1, LV.grade - 0.1, LV.main - 0.06);
+  for (const r of S.rooms) {
+    r.areaShow = r.area ?? netArea(r.rects);
+    const lvl = LV[r.lvl];
+    r.material = houseMat(PAL[r.mat], { side: THREE.FrontSide, emissive: 0x000000 });
+    for (const [x0, z0, x1, z1, ceilH] of r.rects) {
+      const m = block(group, r.material, x0, x1, z0, z1, lvl - 0.06, lvl);
+      m.castShadow = false;
+      m.userData.room = r.id;
+      ctx.floorMeshes.push(m);
+      const ceil = ceilH ?? r.ceilH ?? WALL_H; // a rect's 5th number overrides the room's ceiling (the Shell uses it)
+      block(group, M.ceiling, x0, x1, z0, z1, lvl + ceil, lvl + ceil + 0.12);
+    }
+    ctx.roomById[r.id] = r;
+    if (r.at) ctx.roomLabels.push(makeLabel(r.name, `${r.area ? '' : '≈'}${Math.round(r.areaShow)} ft²`, [r.at[0], lvl + 0.4, r.at[1]], r.isNew ? 'lbl newlbl' : 'lbl'));
+  }
+  for (const w of S.walls) buildWall(w, group, ctx.newMeshes);
+  for (const f of S.fixtures) {
+    const [x0, z0, x1, z1] = f.r;
+    const y0 = f.y0 + (LV[f.lvl ?? 'main'] ?? 0);
+    block(group, FXM[f.m] ?? FXM.cab, x0, x1, z0, z1, y0, y0 + f.h);
+  }
+  for (const { r: [x0, z0, x1, z1], top, th } of S.roofs) block(group, M.roof, x0, x1, z0, z1, top - th, top);
+  group.visible = false;
+  built[S.id] = ctx;
+}
+// light positions, shown only when the layer is on
+for (const [, x, z, top] of P.lights || []) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.15, 16), M.fixture);
+  m.position.set(x, top - 0.075, z);
+  lightGroup.add(m);
+}
+
+// ---------- Site ----------
+const S = P.site || {};
+let ground = null;
+let lotMat = null;
+if (S.ground) {
+  const [x0, z0, x1, z1] = S.ground;
+  ground = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), siteMat(0xd8dccf));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set((x0 + x1) / 2, LV.grade, (z0 + z1) / 2);
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+if (S.lot) {
+  lotMat = new THREE.LineDashedMaterial({ color: 0x6c7869, dashSize: 3, gapSize: 2 });
+  const pts = [...S.lot, S.lot[0]].map(([x, z]) => new THREE.Vector3(x, LV.grade + 0.05, z));
+  const lotLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lotMat);
+  lotLine.computeLineDistances();
+  siteGroup.add(lotLine);
+}
+for (const { mat, r: [x0, z0, x1, z1], y0 = LV.grade, y1 = LV.grade + 0.05 } of S.pads || []) {
+  const m = new THREE.Mesh(slabGeo(x0, x1, z0, z1, y0, y1), siteMat(PAL[mat] ?? PAL.conc));
+  m.receiveShadow = true;
+  siteGroup.add(m);
+}
+const siteLabels = (S.labels || []).map(([t, pos]) => makeLabel(t, '', [pos[0], LV.grade + 0.5, pos[2]], 'lbl site'));
+
+// ======================= 2D PLAN =======================
+const SVGNS = 'http://www.w3.org/2000/svg';
+const K = 10;
+const MARGIN = 9;
+const PX = (x) => (x - BX.x0 + MARGIN) * K;
+const PY = (z) => (z - BX.z0 + MARGIN + 3) * K;
+function fmtFtIn(v) {
+  let ft = Math.floor(v + 1e-9);
+  let inch = Math.round((v - ft) * 12 * 2) / 2;
+  if (inch >= 12) { ft += 1; inch -= 12; }
+  return `${ft}′-${inch % 1 ? inch.toFixed(1) : inch}″`;
+}
+let plan = Object.keys(PLANS)[0];
+const onPlan = (lvl) => PLANS[plan].lvls.includes(lvl ?? 'main');
+function renderPlan() {
+  const S = SCH[scheme];
+  const showNew = tNew.checked;
+  const W = PX(BX.x1 + MARGIN + 4);
+  const H = PY(BX.z1 + MARGIN);
+  const out = [];
+  const add = (s) => out.push(s);
+  const title = [P.name, SCHEME_IDS.length > 1 ? S.name : '', PLANS[plan].name.toLowerCase()].filter(Boolean).join(' · ');
+  const key = scheme === 'existing' ? '' : ' · dashed = taken out' + (showNew ? ' · blue = new' : '');
+  add(`<svg xmlns="${SVGNS}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title} floor plan">`);
+  add(`<rect class="p-bg" x="0" y="0" width="${W}" height="${H}"/>`);
+  add(`<text class="p-title" x="${PX(BX.x0 - MARGIN + 1)}" y="${PY(BX.z0 - MARGIN - 1)}">${title}</text>`);
+  add(`<text class="p-sub" x="${PX(BX.x0 - MARGIN + 1)}" y="${PY(BX.z0 - MARGIN - 1) + 16}">Plan north up · feet${key}</text>`);
+  for (const r of S.rooms.filter((x) => onPlan(x.lvl))) {
+    for (const [x0, z0, x1, z1] of r.rects) {
+      add(`<rect class="p-rf f-${r.mat}${selected === r.id ? ' sel' : ''}" data-room="${r.id}" x="${PX(x0)}" y="${PY(z0)}" width="${(x1 - x0) * K}" height="${(z1 - z0) * K}"/>`);
+    }
+  }
+  for (const f of S.fixtures.filter((x) => onPlan(x.lvl))) {
+    const [x0, z0, x1, z1] = f.r;
+    add(`<rect class="p-fx" x="${PX(x0)}" y="${PY(z0)}" width="${(x1 - x0) * K}" height="${(z1 - z0) * K}"/>`);
+    if (f.t) add(`<text class="p-fxt" x="${PX((x0 + x1) / 2)}" y="${PY((z0 + z1) / 2)}">${f.t}</text>`);
+  }
+  const wallRect = (g, sa, sb, cls) => (g.horiz
+    ? `<rect class="${cls}" x="${PX(sa)}" y="${PY(g.n0)}" width="${(sb - sa) * K}" height="${(g.n1 - g.n0) * K}"/>`
+    : `<rect class="${cls}" x="${PX(g.n0)}" y="${PY(sa)}" width="${(g.n1 - g.n0) * K}" height="${(sb - sa) * K}"/>`);
+  // the other floors' outside walls, dashed, so the plans line up
+  for (const w of S.ext.filter((x) => !onPlan(x.lvl))) {
+    const g = wallGeom(w);
+    add(wallRect(g, g.a0, g.a1, 'p-ghost'));
+  }
+  // walls this scheme takes out, dashed; bearing ones in the accent colour
+  for (const g of S.removed.filter((x) => onPlan(x.lvl))) add(wallRect(g, g.a0, g.a1, `p-rem${g.bearing && tBear.checked ? ' bear' : ''}`));
+  for (const w of S.walls.filter((x) => onPlan(x.lvl))) {
+    const g = wallGeom(w);
+    const cls = `p-w${w.out ? '' : w.bearing && tBear.checked ? ' bear' : ' part'}`;
+    const fresh = showNew ? w.fresh : [];
+    // a solid stretch, with any new work in it drawn in the new colour
+    const solid = (sa, sb) => {
+      let pos = sa;
+      for (const [p, q] of fresh) {
+        if (q <= pos || p >= sb) continue;
+        if (p > pos) add(wallRect(g, pos, p, cls));
+        add(wallRect(g, Math.max(p, pos), Math.min(q, sb), 'p-w new'));
+        pos = Math.min(q, sb);
+      }
+      if (pos < sb) add(wallRect(g, pos, sb, cls));
+    };
+    const ops = g.ops.filter((o) => o.sill < 4.6);
+    let cur = g.a0;
+    for (const o of ops) {
+      if (o.a > cur) solid(cur, o.a);
+      if (o.fill === 'glass') add(wallRect(g, o.a, o.b, `p-win${o.isNew && showNew ? ' new' : ''}`));
+      cur = Math.max(cur, o.b);
+    }
+    if (cur < g.a1) solid(cur, g.a1);
+    for (const o of ops) {
+      if (o.fill !== 'glass') continue;
+      const m = (g.n0 + g.n1) / 2;
+      add(g.horiz
+        ? `<line class="p-dm" x1="${PX(o.a)}" y1="${PY(m)}" x2="${PX(o.b)}" y2="${PY(m)}"/>`
+        : `<line class="p-dm" x1="${PX(m)}" y1="${PY(o.a)}" x2="${PX(m)}" y2="${PY(o.b)}"/>`);
+    }
+  }
+  for (const r of S.rooms.filter((x) => onPlan(x.lvl))) {
+    if (!r.at) continue;
+    const [x, z] = r.at;
+    add(`<text class="p-rl" x="${PX(x)}" y="${PY(z) - 1}">${r.name}</text>`);
+    add(`<text class="p-ra" x="${PX(x)}" y="${PY(z) + 10}">${r.area ? '' : '≈'}${Math.round(r.areaShow)} ft²</text>`);
+  }
+  // dimensions: the overall outline, plus any listed in the data
+  const dimH = (x0, x1, z, label) => {
+    add(`<line class="p-dm" x1="${PX(x0)}" y1="${PY(z)}" x2="${PX(x1)}" y2="${PY(z)}"/>`);
+    for (const x of [x0, x1]) add(`<line class="p-dm" x1="${PX(x)}" y1="${PY(z) - 4}" x2="${PX(x)}" y2="${PY(z) + 4}"/>`);
+    add(`<text class="p-dt" x="${PX((x0 + x1) / 2)}" y="${PY(z) - 4}">${label}</text>`);
+  };
+  const dimV = (z0, z1, x, label) => {
+    add(`<line class="p-dm" x1="${PX(x)}" y1="${PY(z0)}" x2="${PX(x)}" y2="${PY(z1)}"/>`);
+    for (const z of [z0, z1]) add(`<line class="p-dm" x1="${PX(x) - 4}" y1="${PY(z)}" x2="${PX(x) + 4}" y2="${PY(z)}"/>`);
+    add(`<text class="p-dt" transform="translate(${PX(x) - 5} ${PY((z0 + z1) / 2)}) rotate(-90)">${label}</text>`);
+  };
+  const sx = extentOf(S.ext); // this scheme's outline, which an addition makes bigger
+  dimH(sx.x0, sx.x1, sx.z0 - 3, fmtFtIn(sx.x1 - sx.x0));
+  dimV(sx.z0, sx.z1, sx.x1 + 3.5, fmtFtIn(sx.z1 - sx.z0));
+  for (const [kind, a, b, c, label] of S.dims) (kind === 'h' ? dimH : dimV)(a, b, c, label ?? fmtFtIn(b - a));
+  // north arrows + scale bar
+  const ax = PX(BX.x1 + 1);
+  const ay = PY(BX.z0 - MARGIN + 1);
+  add(`<polygon class="p-arrow" points="${ax},${ay - 22} ${ax - 6},${ay} ${ax + 6},${ay}"/><text class="p-dt" x="${ax}" y="${ay + 12}">PLAN N</text>`);
+  if (P.trueNorth) add(`<g transform="translate(${ax - 46} ${ay}) rotate(${P.trueNorth})"><polygon class="p-arrow true" points="0,-22 -6,0 6,0"/></g><text class="p-dt" x="${ax - 46}" y="${ay + 12}">TRUE N</text>`);
+  const bx = PX(BX.x0 - MARGIN + 1);
+  const by = PY(BX.z1 + MARGIN - 1);
+  add(`<rect x="${bx}" y="${by - 3}" width="${5 * K}" height="3" class="p-arrow"/><rect x="${bx + 5 * K}" y="${by - 3}" width="${5 * K}" height="3" fill="none" class="p-dm"/><rect x="${bx + 10 * K}" y="${by - 3}" width="${10 * K}" height="3" class="p-arrow"/>`);
+  add(`<text class="p-dt" x="${bx}" y="${by + 9}">0</text><text class="p-dt" x="${bx + 10 * K}" y="${by + 9}">10′</text><text class="p-dt" x="${bx + 20 * K}" y="${by + 9}">20′</text>`);
+  add('</svg>');
+  plan2d.innerHTML = out.join('');
+}
+const plan2d = document.getElementById('plan2d');
+plan2d.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-room]');
+  if (t) select(t.dataset.room);
+});
+
+// ======================= UI STATE =======================
+const H_TOP = Math.max(WALL_H, ...Object.values(SCH).flatMap((s) => s.roofs.map((r) => r.top))) + 3;
+const VIEWS = {
+  aerial: { pos: [CX + SPAN * 1.1, SPAN * 1.0, CZ + SPAN * 1.5], target: [CX, 1, CZ], cut: H_TOP },
+  front: { pos: [CX, 6, CZ + SPAN * 2.2], target: [CX, 5, CZ], cut: H_TOP },
+  rear: { pos: [CX - SPAN * 0.4, SPAN * 0.5, CZ - SPAN * 1.8], target: [CX, 3, CZ], cut: H_TOP },
+  doll: { pos: [CX + SPAN * 0.9, SPAN * 1.15, CZ + SPAN * 1.25], target: [CX, 0, CZ], cut: WALL_H - 1 },
+  plan: { pos: [CX, SPAN * 2.6, CZ + 0.01], target: [CX, 0, CZ], cut: 4.5 },
+};
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (id) => document.getElementById(id);
+const cutInput = $('cut');
+cutInput.max = String(H_TOP);
+const tNew = $('t-new');
+const tBear = $('t-bear');
+const tLabels = $('t-labels');
+const tSite = $('t-site');
+const tLights = $('t-lights');
+const selEl = $('sel');
+const SEL_EMPTY = 'Click or tap a room to see its size, level and ceiling.';
+let tween = null;
+let mode = '3d';
+let scheme = 'existing';
+let selected = null;
+
+function fmtFt(v) {
+  const ft = Math.floor(v);
+  const inch = Math.round((v - ft) * 12);
+  return inch === 12 ? `${ft + 1}′ 0″` : `${ft}′ ${inch}″`;
+}
+function refreshVisibility() {
+  const interior = cutPlane.constant < H_TOP - 0.05;
+  const show3d = mode === '3d';
+  for (const [id, ctx] of Object.entries(built)) {
+    const on = id === scheme;
+    ctx.group.visible = on;
+    ctx.roomLabels.forEach((l) => { l.visible = show3d && on && tLabels.checked && interior; });
+    ctx.newMeshes.forEach(([m, usual]) => { m.material = tNew.checked ? M.newWall : usual; });
+  }
+  siteLabels.forEach((l) => { l.visible = show3d && tSite.checked; });
+  siteGroup.visible = tSite.checked;
+  lightGroup.visible = tLights.checked;
+  M.bearing.color.setHex(tBear.checked ? PAL.bearing : PAL.wall);
+}
+function setCut(h) {
+  cutPlane.constant = h;
+  cutInput.value = String(h);
+  $('cutv').textContent = h >= H_TOP - 0.05 ? 'Full' : `${fmtFt(h)} above floor`;
+  refreshVisibility();
+}
+function goView(name) {
+  const v = VIEWS[name];
+  document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
+  setCut(v.cut);
+  if (!has3D) return;
+  const toP = new THREE.Vector3(...v.pos);
+  const toT = new THREE.Vector3(...v.target);
+  if (reduceMotion) { camera.position.copy(toP); controls.target.copy(toT); return; }
+  const fromP = camera.position.clone();
+  const fromT = controls.target.clone();
+  const t0 = performance.now();
+  tween = (now) => {
+    const k0 = Math.min(1, (now - t0) / 750);
+    const k = k0 < 0.5 ? 2 * k0 * k0 : 1 - (-2 * k0 + 2) ** 2 / 2;
+    camera.position.lerpVectors(fromP, toP, k);
+    controls.target.lerpVectors(fromT, toT, k);
+    if (k0 >= 1) tween = null;
+  };
+}
+const listItems = (items) => items.map((t) => { const li = document.createElement('li'); li.textContent = t; return li; });
+// What stays the same whichever scheme is showing
+function renderStatic() {
+  $('title').textContent = P.name;
+  $('meta').textContent = [P.address, P.meta].filter(Boolean).join(' · ');
+  document.title = `${P.name} · model`;
+  $('scheme-sec').hidden = SCHEME_IDS.length < 2;
+  $('tog-new').hidden = SCHEME_IDS.length < 2;
+  $('tog-bear').hidden = !Object.values(SCH).some((s) => s.walls.some((w) => w.bearing));
+  $('schemes').replaceChildren(...SCHEME_IDS.map((id) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.scheme = id;
+    b.textContent = SCH[id].name;
+    b.addEventListener('click', () => setScheme(id));
+    return b;
+  }));
+  $('facts').replaceChildren(...(P.facts || []).flatMap(([k, v]) => {
+    const dt = document.createElement('dt');
+    dt.textContent = k;
+    const dd = document.createElement('dd');
+    dd.textContent = v;
+    return [dt, dd];
+  }));
+  $('facts-sec').hidden = !(P.facts || []).length;
+  $('notes').replaceChildren(...listItems(P.notes || []));
+  $('notes-sec').hidden = !(P.notes || []).length;
+}
+function renderScheme() {
+  const S = SCH[scheme];
+  document.querySelectorAll('[data-scheme]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scheme === scheme)));
+  $('eyebrow').textContent = scheme === 'existing' ? 'A-0 · EXISTING CONDITIONS'
+    : S.shell ? 'A-0 · EMPTY SHELL' : `A-1 · REMODEL OPTION · ${S.name.toUpperCase()}`;
+  $('summary').textContent = S.summary;
+  const tb = $('prog');
+  tb.replaceChildren();
+  for (const r of S.rooms.filter((x) => x.at)) {
+    const tr = document.createElement('tr');
+    if (r.isNew) tr.className = 'new';
+    const a = document.createElement('td');
+    a.textContent = r.name;
+    const b = document.createElement('td');
+    b.textContent = `${r.area ? '' : '≈'}${Math.round(r.areaShow)} ft²`;
+    tr.append(a, b);
+    tb.appendChild(tr);
+  }
+  const mats = [...new Set(S.rooms.map((r) => r.mat))];
+  $('legend').replaceChildren(...mats.map((m) => {
+    const li = document.createElement('li');
+    const sw = document.createElement('span');
+    sw.className = 'sw';
+    sw.style.background = hex(PAL[m]);
+    li.append(sw, FLOOR_TEXT[m] ?? m);
+    return li;
+  }));
+  $('scope').replaceChildren(...listItems(S.scope));
+  $('checks').replaceChildren(...listItems(S.checks));
+  $('scope-sec').hidden = !S.scope.length;
+  $('checks-sec').hidden = !S.checks.length;
+}
+function setScheme(id) {
+  scheme = id;
+  clearSelection();
+  renderScheme();
+  if (mode === '2d') renderPlan();
+  refreshVisibility();
+  writeHash();
+}
+// #<scheme>, plus /plan when the floor plan is showing, so a link opens the same view
+function writeHash() {
+  const h = scheme === 'existing' && mode === '3d' ? '' : `#${scheme}${mode === '2d' ? '/plan' : ''}`;
+  try { history.replaceState(null, '', h || location.pathname + location.search); } catch (e) { /* the hash is a convenience only */ }
+}
+function renderPlanButtons() {
+  const box = $('plans');
+  box.replaceChildren(...Object.entries(PLANS).map(([id, p]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = p.name;
+    b.setAttribute('aria-pressed', String(id === plan));
+    b.addEventListener('click', () => { plan = id; renderPlanButtons(); renderPlan(); });
+    return b;
+  }));
+  box.hidden = mode !== '2d' || Object.keys(PLANS).length < 2;
+}
+function setMode(m) {
+  mode = has3D ? m : '2d';
+  document.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  const is2d = mode === '2d';
+  plan2d.hidden = !is2d;
+  if (is2d) renderPlan();
+  renderPlanButtons();
+  if (has3D) {
+    renderer.domElement.style.visibility = is2d ? 'hidden' : 'visible';
+    labelRenderer.domElement.style.visibility = is2d ? 'hidden' : 'visible';
+  }
+  document.querySelectorAll('[data-view]').forEach((b) => { b.disabled = is2d; });
+  cutInput.disabled = is2d;
+  $('hint').hidden = is2d;
+  refreshVisibility();
+  writeHash();
+}
+function clearSelection() {
+  for (const ctx of Object.values(built)) ctx.roomById[selected]?.material.emissive.setHex(0x000000);
+  selected = null;
+  const p = document.createElement('p');
+  p.className = 'empty';
+  p.textContent = SEL_EMPTY;
+  selEl.replaceChildren(p);
+}
+function select(id) {
+  const { roomById } = built[scheme];
+  const r = roomById[id];
+  if (!r) return;
+  if (selected && roomById[selected]) roomById[selected].material.emissive.setHex(0x000000);
+  selected = id;
+  r.material.emissive.setHex(PAL.door);
+  r.material.emissiveIntensity = 0.35;
+  if (mode === '2d') {
+    const home = Object.keys(PLANS).find((k) => PLANS[k].lvls.includes(r.lvl));
+    if (home && home !== plan) { plan = home; renderPlanButtons(); renderPlan(); }
+    plan2d.querySelectorAll('[data-room]').forEach((el) => el.classList.toggle('sel', el.dataset.room === id));
+  }
+  selEl.replaceChildren();
+  const nm = document.createElement('div');
+  nm.className = 'nm';
+  nm.textContent = r.name;
+  selEl.appendChild(nm);
+  if (r.sub) {
+    const s = document.createElement('div');
+    s.className = 'sub';
+    s.textContent = r.sub;
+    selEl.appendChild(s);
+  }
+  const dl = document.createElement('dl');
+  const rows = [
+    ['Area', r.area ? `${r.area.toFixed(1)} ft² (measured)` : `≈ ${Math.round(r.areaShow)} ft²`],
+    ['Level', LEVELS[r.lvl] ?? r.lvl],
+    ['Ceiling', r.ceil ?? `Flat, ${fmtFt(r.ceilH ?? WALL_H)}`],
+  ];
+  for (const [k, v] of rows) {
+    const dt = document.createElement('dt');
+    dt.textContent = k;
+    const dd = document.createElement('dd');
+    dd.textContent = v;
+    dl.append(dt, dd);
+  }
+  selEl.appendChild(dl);
+  if (r.note) {
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent = r.note;
+    selEl.appendChild(p);
+  }
+}
+
+document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => goView(b.dataset.view)));
+cutInput.addEventListener('input', () => {
+  document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+  setCut(parseFloat(cutInput.value));
+});
+[tLabels, tSite, tLights].forEach((el) => el.addEventListener('change', refreshVisibility));
+// these two also colour the 2D plan
+[tNew, tBear].forEach((el) => el.addEventListener('change', () => { refreshVisibility(); if (mode === '2d') renderPlan(); }));
+
+if (has3D) {
+  controls.addEventListener('start', () => { tween = null; });
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let downAt = null;
+  renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const ctx = built[scheme];
+    const blockers = ctx.group.children.filter((m) => m.isMesh && !m.userData.room && m.material !== M.glass);
+    const hits = ray.intersectObjects([...ctx.floorMeshes, ...blockers], false).filter((h) => h.point.y <= cutPlane.constant);
+    if (hits[0]?.object.userData.room) select(hits[0].object.userData.room);
+  });
+}
+
+// ---------- Theme ----------
+function applyTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  const get = (n, fb) => (cs.getPropertyValue(n).trim() || fb);
+  scene.background = new THREE.Color(get('--scene-bg', '#e7e9e3'));
+  if (ground) ground.material.color.set(get('--ground', '#d8dccf'));
+  if (lotMat) lotMat.color.set(get('--lot', '#6c7869'));
+}
+applyTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ---------- Sizing and loop ----------
+function resize() {
+  const w = stage.clientWidth;
+  const h = stage.clientHeight;
+  if (!w || !h || !has3D) return;
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  $('hint').textContent = w < 560
+    ? 'Drag to orbit · pinch to zoom · tap a room'
+    : 'Drag to orbit · right-drag to pan · scroll to zoom · click a room';
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+renderStatic();
+const [hashScheme, hashView] = decodeURIComponent(location.hash.slice(1)).split('/');
+scheme = SCH[hashScheme] ? hashScheme : 'existing';
+renderScheme();
+camera.position.set(...VIEWS.doll.pos);
+if (has3D) controls.target.set(...VIEWS.doll.target);
+setMode(hashView === 'plan' ? '2d' : '3d');
+setCut(VIEWS.doll.cut);
+
+if (has3D) {
+  renderer.setAnimationLoop((now) => {
+    if (tween) tween(now);
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+  });
+}
+</script>

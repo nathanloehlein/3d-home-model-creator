@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>house.glb check</title>
+<style>html, body { margin: 0; height: 100%; background: #20242a; } #info { position: fixed; left: 8px; top: 8px; color: #ddd; font: 12px monospace; }</style>
+</head>
+<body>
+<div id="info">loading…</div>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+// Local check of ha/house.glb: loads it the way floor3d-card does (GLTFLoader) and lights a few anchors.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x20242a);
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 10, 20000);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 0.6));
+const controls = new OrbitControls(camera, renderer.domElement);
+new GLTFLoader().load('house.glb', (g) => {
+  scene.add(g.scene);
+  const names = [];
+  g.scene.traverse((o) => { if (o.isMesh) names.push(o.name); });
+  const box = new THREE.Box3().setFromObject(g.scene);
+  const c = box.getCenter(new THREE.Vector3());
+  controls.target.copy(c);
+  camera.position.set(c.x + 900, 2600, c.z + 2300);
+  // light a few anchors like floor3d does (point light just under the disc)
+  for (const n of (new URLSearchParams(location.search).get('on') || 'light_living,light_kitchen,light_bed_1,light_ext_front').split(',')) {
+    const o = g.scene.getObjectByName(n);
+    if (!o) continue;
+    const b = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+    const l = new THREE.PointLight(0xffd9a0, 60000, 900, 1.2);
+    l.position.set(b.x, b.y - 20, b.z);
+    scene.add(l);
+  }
+  window.__check = { meshes: names.length, size: box.getSize(new THREE.Vector3()).toArray().map(Math.round), min: box.min.toArray().map(Math.round), names };
+  document.getElementById('info').textContent = `${names.length} meshes · size ${window.__check.size.join(' × ')} cm`;
+}, undefined, (e) => { document.getElementById('info').textContent = 'ERROR ' + e; window.__check = { error: String(e) }; });
+renderer.setAnimationLoop(() => {
+  // the pane can start at 0x0, so size the canvas on every frame it changes
+  if (renderer.domElement.width !== innerWidth || renderer.domElement.height !== innerHeight) { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+  controls.update(); renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

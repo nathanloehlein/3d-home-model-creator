@@ -1,0 +1,43 @@
+# floor3d-card dashboard for this property (storage mode, pushed by tools/ha_push_dashboard.py).
+#
+# Needs floor3d-card installed through HACS (adizanni/floor3d-card) and ha/house.glb copied to
+# /config/www/<folder>/house.glb on the box, where <folder> matches `path` below.
+# Each light binding sits on a light_* disc from PROPERTY.lights in model.html; clicking a disc toggles it.
+# The entity ids below are PLACEHOLDERS - swap in this property's real ones.
+title: Property 3D
+views:
+  - title: House
+    path: house
+    icon: mdi:home-floor-3
+    type: panel
+    cards:
+      - type: custom:floor3d-card
+        name: Property
+        path: /local/property3d/
+        objfile: house.glb
+        header: 'no'
+        click: 'yes'
+        overlay: 'no'
+        backgroundColor: '#1d2126'
+        globalLightPower: '0.55'
+        shadow: 'no'
+        extralightmode: 'no'
+        sky: 'no'
+        # north: { x: <sin(trueNorth)>, z: <-cos(trueNorth)> } once PROPERTY.trueNorth is known
+        entities:
+          - entity: light.living_room
+            type3d: light
+            object_id: light_living
+            light: { lumens: 1200, vertical_alignment: bottom, shadow: 'no' }
+          - entity: light.kitchen
+            type3d: light
+            object_id: light_kitchen
+            light: { lumens: 1200, vertical_alignment: bottom, shadow: 'no' }
+          - entity: light.bedroom_1
+            type3d: light
+            object_id: light_bed_1
+            light: { lumens: 1000, vertical_alignment: bottom, shadow: 'no' }
+          - entity: light.porch
+            type3d: light
+            object_id: light_ext_front
+            light: { lumens: 900, vertical_alignment: bottom, shadow: 'no', distance: 600 }

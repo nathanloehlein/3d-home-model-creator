@@ -1,0 +1,17 @@
+{
+  "name": "property-model",
+  "version": "1.0.0",
+  "description": "A 3D model and floor plan of a house from one block of data, with remodel options and a Home Assistant 3D export.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "build": "node tools/build.mjs",
+    "glb": "node tools/ha_floor3d.mjs",
+    "test": "node --test"
+  }
+}

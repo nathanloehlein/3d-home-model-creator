@@ -7,6 +7,8 @@ A 3D model and floor plan of one property, with remodel schemes and a Home Assis
 - `model.html` is the source of truth. All property data lives in the DATA block (`/* DATA:BEGIN */` … `/* DATA:END */`): `PROPERTY` for the house as it stands, then the optional remodel `SCHEMES`.
 - `tools/ha_floor3d.mjs` and `tools/scheme.test.mjs` eval the DATA, `WALLS` and `SCHEME` blocks. Keep all three self-contained, with no references to page code outside them.
 - Plan feet, plan north up. x = plan east, z = plan south, y = feet above the main floor.
+- Walls may be diagonal. Axis-aligned opening `a`/`b` values are global x or z coordinates; diagonal opening values are distances from the wall's first endpoint. For diagonal exterior walls, `out: 1` is right while walking from the first endpoint to the second.
+- Use `poly` or `polys` for non-rectangular room floors. Use `PLANE([[x, z, height], ...], thickness)` for roof and ceiling planes; roof heights are absolute, while room ceiling heights are relative to the room level.
 - Measured figures beat drawn ones. When an area is measured, put it in the room's `area` so the page stops estimating. Note in a comment where each number came from, and keep the sources in `reference/`.
 - Remodel schemes:
   - Never hand-tag new or removed walls; the SCHEME block diffs each scheme against `PROPERTY`.

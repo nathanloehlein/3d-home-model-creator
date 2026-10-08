@@ -14,7 +14,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const html = fs.readFileSync(path.join(ROOT, 'model.html'), 'utf8');
 const between = (a, b) => html.slice(html.indexOf(a) + a.length, html.indexOf(b));
 const src = ['DATA', 'WALLS', 'SCHEME'].map((b) => between(`/* ${b}:BEGIN */`, `/* ${b}:END */`)).join('\n');
-const names = ['PROPERTY', 'WIN', 'DOOR', 'OPEN', 'revise', 'wallGeom', 'mergeSpans', 'cutSpans', 'diffWalls', 'resolveSchemes'];
+const names = ['PROPERTY', 'WIN', 'DOOR', 'OPEN', 'FURNITURE', 'fixturePoly', 'furnitureParts', 'revise', 'wallGeom', 'mergeSpans', 'cutSpans', 'diffWalls', 'resolveSchemes'];
 const K = new Function('block', 'M',
   `${src}\nreturn { ${names.join(', ')}, SCHEMES: typeof SCHEMES === 'undefined' ? {} : SCHEMES };`)(() => ({}), {});
 const { PROPERTY: P, WIN, OPEN, DOOR } = K;
@@ -76,6 +76,22 @@ test('diagonal wall diff projects matching spans', () => {
 test('doors carry hinge and swing metadata', () => {
   assert.deepEqual(DOOR(2, 5), { a: 2, b: 5, sill: 0, head: 6.8, fill: 'door', hinge: 'a', swing: 1 });
   assert.equal(DOOR(2, 5, { hinge: 'b', swing: -1 }).hinge, 'b');
+});
+
+test('furniture catalog creates rotated footprints and detailed parts', () => {
+  const sofa = K.FURNITURE('sofa', { id: 'sofa', at: [10, 8], rotate: 90 });
+  const xs = K.fixturePoly(sofa).map(([x]) => Math.round(x * 100) / 100);
+  const zs = K.fixturePoly(sofa).map(([, z]) => Math.round(z * 100) / 100);
+  assert.equal(Math.max(...xs) - Math.min(...xs), 3);
+  assert.equal(Math.max(...zs) - Math.min(...zs), 7);
+  assert.equal(K.furnitureParts(sofa).length, 4);
+});
+
+test('new scheme furniture is tagged as new work', () => {
+  const sofa = K.FURNITURE('sofa', { id: 'new-sofa', at: [10, 8] });
+  const S = K.resolveSchemes(P, { furnished: { name: 'Furnished', fixtures: [...P.fixtures, sofa] } }).furnished;
+  assert.equal(S.fixtures.find((f) => f.id === 'new-sofa').isNew, true);
+  assert.equal(S.fixtures.find((f) => f.id === 'bed-1-bed').isNew, undefined);
 });
 
 test('closing an opening counts as new work', () => {

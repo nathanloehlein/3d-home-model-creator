@@ -33,6 +33,59 @@ npm start
 
 Open http://localhost:8767/, then edit the DATA block in `model.html` and reload.
 
+### Start with an AI coding agent
+
+Open the cloned folder in your preferred AI coding tool, attach whatever property material you have, and use a prompt like this:
+
+```text
+Use this repository to create an accurate 3D model and floor plan of my home.
+
+Read README.md and CLAUDE.md first. Replace the example PROPERTY data in
+model.html with my house. Preserve the existing renderer and tools. Use feet as
+the model unit, plan north up, x east, and z south.
+
+Source material attached:
+- [list each floor plan, survey, sketch, photo set, or measurement sheet]
+
+Start by inventorying the source material and summarizing:
+1. dimensions and facts you can verify;
+2. conflicts or ambiguous details;
+3. measurements still needed;
+4. proposed coordinate origin and wall outline.
+
+Do not guess missing dimensions silently. Clearly label estimates. Prefer written
+measurements over proportions inferred from drawings or photos. Build the existing
+house first and verify it in both 2D and 3D before adding remodel schemes.
+
+Existing house details:
+- Address or project name: [optional]
+- Floors and level changes: [example: main floor plus garage 7 inches lower]
+- Ceiling heights/slopes: [example: 8 feet flat; living room vaulted to 12 feet]
+- Known bearing walls: [list, or say unknown]
+- True-north direction relative to the plan: [if known]
+
+Remodel goals, after the existing model is correct:
+- [goal 1]
+- [goal 2]
+- [fixed constraints or things that cannot move]
+
+Run npm test and npm run build when finished. Show me the rendered floor plan and
+3D model, then list every estimate or unresolved question.
+```
+
+Useful source material, from best evidence to supporting context:
+
+- **Dimensioned floor plans:** architect drawings, appraisal plans, listing plans or a hand sketch. Include every floor and note which direction is north.
+- **Boundary or topographic survey:** lot lines, building footprint, setbacks, patios, decks, driveways, detached structures and true north. A vector PDF is especially useful.
+- **Measurement sheet:** exterior wall runs first, then room dimensions, wall thicknesses, door/window widths and offsets from a known corner.
+- **Exterior photos:** one straight-on photo of every side, plus oblique corner views showing roof shapes, grade changes, decks and additions.
+- **Interior photos:** each room from opposing corners; include doors, windows, stairs, ceiling transitions and connections to adjacent rooms.
+- **Ceiling and level notes:** floor-to-ceiling heights, vaulted high/low points, steps, sunken rooms and garage slab offsets.
+- **Utility and structure notes:** known bearing walls, posts, beams, plumbing stacks, electrical panels, HVAC equipment and immovable appliances.
+- **Remodel markups:** a sketch or annotated plan showing desired additions, removed walls, new openings and fixed constraints.
+
+Screenshots and phone photos work. PDFs or original exports usually preserve more detail. Crop unrelated personal information before attaching documents or publishing your finished model.
+
 | Command | What it does |
 |---|---|
 | `npm start` | Preview server at http://localhost:8767/. It rebuilds the page on every request. |

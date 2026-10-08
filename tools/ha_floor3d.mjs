@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { triangulatePolygon } from './geometry.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const html = fs.readFileSync(path.join(ROOT, 'model.html'), 'utf8');
@@ -29,8 +30,8 @@ const block = (group, mat, x0, x1, z0, z1, bot, top) => prism(group, mat, [[x0, 
 // bearing and new-work colours are page-only: in HA they're plain interior wall
 const M = { ...Object.fromEntries(['siding', 'wall', 'glass', 'door', 'gdoor'].map((n) => [n, { name: n }])), bearing: { name: 'wall' }, newWall: { name: 'wall' } };
 const src = ['DATA', 'WALLS', 'SCHEME'].map((b) => between(`/* ${b}:BEGIN */`, `/* ${b}:END */`)).join('\n');
-const { PROPERTY: P, LV, PAL, buildWall, resolveSchemes, SCHEMES, roomPolys } = new Function('block', 'prism', 'M',
-  `${src}\nreturn { PROPERTY, LV, PAL, buildWall, resolveSchemes, roomPolys, SCHEMES: typeof SCHEMES === 'undefined' ? {} : SCHEMES };`)(block, prism, M);
+const { PROPERTY: P, LV, PAL, buildWall, resolveSchemes, SCHEMES, roomPolys, furnitureParts } = new Function('block', 'prism', 'M',
+  `${src}\nreturn { PROPERTY, LV, PAL, buildWall, resolveSchemes, roomPolys, furnitureParts, SCHEMES: typeof SCHEMES === 'undefined' ? {} : SCHEMES };`)(block, prism, M);
 
 // ---- which layout: the existing house, or a scheme's (its own lists; site and lights are shared)
 const at = process.argv.indexOf('--scheme');
@@ -59,9 +60,8 @@ for (const [x0, z0, x1, z1] of L.foundation || []) put('foundation', 'found', bo
 const id = (s) => s.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
 for (const r of L.rooms) for (const poly of roomPolys(r)) put(`room_${id(r.id)}`, r.mat, { poly, bot: LV[r.lvl] - 0.06, top: LV[r.lvl] });
 for (const f of L.fixtures) {
-  const [x0, z0, x1, z1] = f.r;
-  const y0 = f.y0 + (LV[f.lvl ?? 'main'] ?? 0);
-  put('furniture', f.m, box(x0, x1, z0, z1, y0, y0 + f.h));
+  const lvl = LV[f.lvl ?? 'main'] ?? 0;
+  for (const part of furnitureParts(f)) put('furniture', part.mat, { poly: part.poly, bot: lvl + part.y0, top: lvl + part.y1 });
 }
 const S = P.site || {};
 for (const { mat, r: [x0, z0, x1, z1], y0 = LV.grade, y1 = LV.grade + 0.05 } of S.pads || []) put('paving', mat, box(x0, x1, z0, z1, y0, y1));
@@ -113,6 +113,12 @@ function normal(poly) {
   const l = Math.hypot(...n) || 1;
   return n.map((c) => c / l);
 }
+function triangulateFace(poly) {
+  const n = normal(poly).map(Math.abs);
+  const drop = n.indexOf(Math.max(...n));
+  const projected = poly.map((p) => drop === 0 ? [p[1], p[2]] : drop === 1 ? [p[0], p[2]] : [p[0], p[1]]);
+  return triangulatePolygon(projected);
+}
 
 // ---- glTF
 const lin = (hex) => [16, 8, 0].map((s) => {
@@ -158,7 +164,7 @@ for (const [name, obj] of objects) {
       if (n[0] * (fc[0] - c[0]) + n[1] * (fc[1] - c[1]) + n[2] * (fc[2] - c[2]) < 0) n = n.map((v) => -v);
       const base = pos.length / 3;
       for (const p of poly) { pos.push(...p); nor.push(...n); }
-      for (let i = 1; i < poly.length - 1; i++) idx.push(base, base + i, base + i + 1);
+      for (const triangle of triangulateFace(poly)) idx.push(...triangle.map((i) => base + i));
     }
   }
   const min = [0, 1, 2].map((k) => Math.min(...pos.filter((_, i) => i % 3 === k)));

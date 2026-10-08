@@ -57,7 +57,7 @@ body {
 .plan2d svg { display: block; width: 100%; height: 100%; min-width: 520px; min-height: 420px; }
 .hint {
   position: absolute; left: 10px; bottom: 10px; max-width: calc(100% - 20px);
-  font: 400 11px/1.3 var(--font-mono); color: var(--ink-2); background: var(--label-bg);
+  font: 400 12px/1.3 var(--font-mono); color: var(--ink-2); background: var(--label-bg);
   padding: 4px 8px; border: 1px solid var(--rule); pointer-events: none;
 }
 .fail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--ink-2); }
@@ -140,7 +140,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .p-door.new { stroke: var(--new); stroke-width: 1.2; }
 .p-ghost { fill: none; stroke: var(--ink-2); stroke-width: 0.8; stroke-dasharray: 4 3; opacity: 0.6; }
 .p-fx { fill: none; stroke: var(--ink-2); stroke-width: 0.8; }
+.p-fx.new { stroke: var(--new); stroke-width: 1.2; }
+.p-fx-detail { fill: none; stroke: var(--ink-2); stroke-width: 0.55; pointer-events: none; }
 .p-fxt { font: 500 7.5px var(--font-mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.p-measure { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 3 2; pointer-events: none; }
+.p-measure-dot { fill: var(--accent); pointer-events: none; }
+.p-measure-text { font: 500 9px var(--font-mono); fill: var(--accent); text-anchor: middle; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; pointer-events: none; }
+.plan2d.measuring svg { cursor: crosshair; }
 .p-rl { font: 600 10.5px var(--font-narrow); letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink); text-anchor: middle; pointer-events: none; }
 .p-ra { font: 400 9px var(--font-mono); fill: var(--ink-2); text-anchor: middle; pointer-events: none; }
 .p-dm { stroke: var(--ink-2); stroke-width: 0.7; fill: none; }
@@ -177,6 +183,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <button type="button" id="m-2d" data-mode="2d" aria-pressed="false">Floor plan</button>
       </div>
       <div class="seg" role="group" aria-label="Floor shown in the plan" id="plans" hidden></div>
+      <div class="seg" id="measure-tools" hidden>
+        <button type="button" id="measure" aria-pressed="false">Measure</button>
+        <button type="button" id="measure-clear" disabled>Clear</button>
+      </div>
       <div class="seg" role="group" aria-label="Camera views" id="views">
         <button type="button" data-view="aerial" aria-pressed="false">Aerial</button>
         <button type="button" data-view="front" aria-pressed="false">Front</button>
@@ -246,6 +256,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* DATA:BEGIN */
 // Everything about the property lives between DATA:BEGIN and DATA:END; tools/ha_floor3d.mjs reads the same block.
@@ -277,6 +288,63 @@ const roomPolys = (r) => [...(r.rects || []).map(rectPoly), ...(r.polys || []), 
 const exampleGableTop = (x, z) => 9.2 + 2.8 * (1 - Math.abs(z - 14) / 15.5);
 // Fixtures: label, [x0, z0, x1, z1], height, material, base height
 const fx = (t, r, h, m, y0 = 0, extra = {}) => ({ t, r, h, m, y0, ...extra });
+const FURNITURE_TYPES = {
+  'twin-bed': { label: 'Twin bed', width: 3.25, depth: 6.25, height: 1.9, mat: 'bed', symbol: 'bed', asset: 'bedSingle.glb' },
+  'queen-bed': { label: 'Queen bed', width: 5, depth: 6.67, height: 1.9, mat: 'bed', symbol: 'bed', asset: 'bedDouble.glb' },
+  'king-bed': { label: 'King bed', width: 6.33, depth: 6.67, height: 1.9, mat: 'bed', symbol: 'bed', asset: 'bedDouble.glb' },
+  sofa: { label: 'Sofa', width: 7, depth: 3, height: 2.7, mat: 'fabric', symbol: 'sofa', asset: 'loungeSofa.glb' },
+  loveseat: { label: 'Loveseat', width: 5, depth: 3, height: 2.7, mat: 'fabric', symbol: 'sofa', asset: 'loungeSofa.glb' },
+  'dining-table': { label: 'Dining table', width: 6, depth: 3.5, height: 2.5, mat: 'wood', symbol: 'table', asset: 'table.glb' },
+  desk: { label: 'Desk', width: 4.5, depth: 2.2, height: 2.5, mat: 'wood', symbol: 'table', asset: 'desk.glb' },
+  dresser: { label: 'Dresser', width: 5, depth: 1.8, height: 3, mat: 'wood', symbol: 'storage', asset: 'bathroomCabinetDrawer.glb' },
+  wardrobe: { label: 'Wardrobe', width: 5, depth: 2, height: 6.5, mat: 'wood', symbol: 'storage', asset: 'bookcaseClosed.glb' },
+  refrigerator: { label: 'Refrigerator', width: 3, depth: 2.7, height: 6, mat: 'appl', symbol: 'appliance', asset: 'kitchenFridge.glb' },
+  range: { label: 'Range', width: 2.5, depth: 2.2, height: 3, mat: 'appl', symbol: 'appliance', asset: 'kitchenStoveElectric.glb' },
+  toilet: { label: 'WC', width: 1.7, depth: 2.4, height: 1.3, mat: 'appl', symbol: 'toilet', asset: 'toilet.glb' },
+  vanity: { label: 'Vanity', width: 4, depth: 2, height: 2.8, mat: 'cab', symbol: 'storage', asset: 'bathroomCabinet.glb' },
+  tub: { label: 'Tub', width: 5, depth: 2.7, height: 1.8, mat: 'appl', symbol: 'tub', asset: 'bathtub.glb' },
+};
+const rotatePoint = ([x, z], deg) => {
+  const a = deg * Math.PI / 180;
+  return [x * Math.cos(a) - z * Math.sin(a), x * Math.sin(a) + z * Math.cos(a)];
+};
+const FURNITURE = (kind, options) => {
+  const preset = FURNITURE_TYPES[kind];
+  if (!preset) throw new Error(`Unknown furniture type: ${kind}`);
+  const value = { ...preset, ...options, kind };
+  const [x, z] = value.at;
+  value.t = value.label;
+  value.m = value.mat;
+  value.h = value.height;
+  value.y0 ??= 0;
+  value.rotate ??= 0;
+  value.r = [x - value.width / 2, z - value.depth / 2, x + value.width / 2, z + value.depth / 2];
+  return value;
+};
+const fixturePoly = (f) => {
+  if (!f.kind) return rectPoly(f.r);
+  const corners = [[-f.width / 2, -f.depth / 2], [f.width / 2, -f.depth / 2], [f.width / 2, f.depth / 2], [-f.width / 2, f.depth / 2]];
+  return corners.map((p) => { const [x, z] = rotatePoint(p, f.rotate); return [x + f.at[0], z + f.at[1]]; });
+};
+const fixturePoint = (f, point) => {
+  if (!f.kind) return point;
+  const [x, z] = rotatePoint(point, f.rotate);
+  return [x + f.at[0], z + f.at[1]];
+};
+const furnitureParts = (f) => {
+  const whole = { poly: fixturePoly(f), y0: f.y0, y1: f.y0 + f.h, mat: f.m };
+  if (!f.kind) return [whole];
+  const part = (cx, cz, w, d, y0, y1, mat = f.m) => ({
+    poly: [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map((p) => {
+      const [x, z] = rotatePoint([p[0] + cx, p[1] + cz], f.rotate);
+      return [x + f.at[0], z + f.at[1]];
+    }), y0: f.y0 + y0, y1: f.y0 + y1, mat,
+  });
+  if (f.symbol === 'bed') return [part(0, 0.2, f.width, f.depth - 0.4, 0.7, f.h), part(0, -f.depth / 2 + 0.15, f.width, 0.3, 0, 3.2, 'wood')];
+  if (f.symbol === 'sofa') return [part(0, 0.25, f.width, f.depth - 0.5, 0.45, 1.55), part(0, -f.depth / 2 + 0.22, f.width, 0.45, 0, f.h), part(-f.width / 2 + 0.22, 0, 0.45, f.depth, 0, 2.2), part(f.width / 2 - 0.22, 0, 0.45, f.depth, 0, 2.2)];
+  if (f.symbol === 'table') return [part(0, 0, f.width, f.depth, f.h - 0.22, f.h), ...[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => part(sx * (f.width / 2 - 0.18), sz * (f.depth / 2 - 0.18), 0.22, 0.22, 0, f.h))];
+  return [whole];
+};
 // For schemes: copy a list from the existing house by id. { id: null } drops that item, { id: {...} } changes fields.
 const revise = (list, edits) => list.filter((it) => edits[it.id] !== null).map((it) => (edits[it.id] ? { ...it, ...edits[it.id] } : it));
 
@@ -315,9 +383,9 @@ const PROPERTY = {
   fixtures: [
     fx('', [13, 0.25, 23.75, 2.25], 3, 'counter'),
     fx('Island', [15, 6, 21, 9], 3, 'stone'),
-    fx('Bed', [30, 0.5, 35.5, 7], 1.9, 'bed', 0, { id: 'bed-1-bed' }),
-    fx('Bed', [0.5, 22, 5, 27.5], 1.9, 'bed'),
-    fx('Tub', [24.3, 25, 29.5, 27.7], 1.8, 'appl'),
+    FURNITURE('queen-bed', { id: 'bed-1-bed', at: [32.75, 3.85] }),
+    FURNITURE('twin-bed', { id: 'bed-2-bed', at: [3, 24.5], rotate: 90 }),
+    FURNITURE('tub', { id: 'bath-tub', at: [26.9, 26.35] }),
     fx('Furn', [37.5, 25.2, 39.6, 27.6], 5.5, 'steel', 0, { fixed: true }),
   ],
   foundation: [[0, 0, 40, 28]],
@@ -375,7 +443,7 @@ const SCHEMES = {
     ],
     fixtures: [
       ...revise(PROPERTY.fixtures, { 'bed-1-bed': null }),
-      fx('Sofa', [26, 8.5, 33, 11.5], 2.6, 'fabric'),
+      FURNITURE('sofa', { id: 'den-sofa', at: [29.5, 10], rotate: 180 }),
       fx('W', [32.2, 19, 34.7, 21.4], 3, 'appl'),
       fx('D', [32.2, 21.5, 34.7, 23.6], 3, 'appl'),
     ],
@@ -405,9 +473,9 @@ const SCHEMES = {
     ],
     fixtures: [
       ...PROPERTY.fixtures,
-      fx('Tub', [28.6, -7.6, 33.8, -5], 1.8, 'appl'),
-      fx('Vanity', [34.5, -7.7, 39.4, -5.7], 2.8, 'cab'),
-      fx('WC', [28.6, -2.4, 30.6, -0.8], 1.3, 'appl'),
+      FURNITURE('tub', { id: 'suite-tub', at: [31.2, -6.3] }),
+      FURNITURE('vanity', { id: 'suite-vanity', at: [37, -6.7], width: 4.9 }),
+      FURNITURE('toilet', { id: 'suite-wc', at: [29.6, -1.6] }),
     ],
     foundation: [...PROPERTY.foundation, [28, -8, 40, 0]],
     roofs: [...PROPERTY.roofs, PLANE([[26.5, -9.5, 9], [41.5, -9.5, 9], [41.5, -1.5, 10.4], [26.5, -1.5, 10.4]])],
@@ -615,8 +683,14 @@ function resolveSchemes(P, schemes) {
         && JSON.stringify(roomPolys(o)) === JSON.stringify(roomPolys(r))
         && JSON.stringify(o.ceilings || []) === JSON.stringify(r.ceilings || [])),
     }));
+    const fixtures = id === 'existing' || (!s.fixtures && !s.shell) ? lay.fixtures : lay.fixtures.map((f) => {
+      const isNew = f.isNew ?? (!!f.id && !P.fixtures.some((o) => o.id === f.id
+        && o.kind === f.kind
+        && JSON.stringify(fixturePoly(o)) === JSON.stringify(fixturePoly(f))));
+      return { ...f, ...(isNew ? { isNew: true } : {}) };
+    });
     out[id] = {
-      ...s, ...lay, id, rooms, walls, removed,
+      ...s, ...lay, id, rooms, fixtures, walls, removed,
       summary: s.summary ?? (s.shell ? SHELL_SUMMARY : ''), scope: s.scope ?? [], checks: s.checks ?? [],
     };
   }
@@ -691,6 +765,12 @@ const M = {
 };
 const FXM = {};
 for (const k of ['cab', 'counter', 'stone', 'steel', 'dark', 'appl', 'wood', 'fabric', 'bed']) FXM[k] = houseMat(PAL[k]);
+const furnitureLoader = new GLTFLoader();
+const furnitureAssets = new Map();
+const furnitureAsset = (name) => {
+  if (!furnitureAssets.has(name)) furnitureAssets.set(name, furnitureLoader.loadAsync(`assets/furniture/kenney/${name}`).then((gltf) => gltf.scene));
+  return furnitureAssets.get(name);
+};
 
 const houseGroup = new THREE.Group();
 const siteGroup = new THREE.Group();
@@ -721,6 +801,39 @@ function prism(group, mat, points, bot, top) {
   m.receiveShadow = solid;
   group.add(m);
   return m;
+}
+function addFurniture(f, group) {
+  const lvl = LV[f.lvl ?? 'main'] ?? 0;
+  const fallback = new THREE.Group();
+  for (const part of furnitureParts(f)) prism(fallback, FXM[part.mat] ?? FXM.cab, part.poly, lvl + part.y0, lvl + part.y1);
+  group.add(fallback);
+  if (!f.asset) return;
+  furnitureAsset(f.asset).then((template) => {
+    if (!fallback.parent) return;
+    const model = template.clone(true);
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    model.scale.set(f.width / size.x, f.h / size.y, f.depth / size.z);
+    const fitted = new THREE.Box3().setFromObject(model);
+    const center = fitted.getCenter(new THREE.Vector3());
+    model.position.set(-center.x, -fitted.min.y, -center.z);
+    model.traverse((node) => {
+      if (!node.isMesh) return;
+      node.castShadow = true;
+      node.receiveShadow = true;
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      for (const material of materials) {
+        material.clippingPlanes = [cutPlane];
+        material.clipShadows = true;
+      }
+    });
+    const holder = new THREE.Group();
+    holder.position.set(f.at[0], lvl + f.y0, f.at[1]);
+    holder.rotation.y = -f.rotate * Math.PI / 180;
+    holder.add(model);
+    group.add(holder);
+    group.remove(fallback);
+  }).catch(() => {});
 }
 function block(group, mat, x0, x1, z0, z1, bot, top) {
   return prism(group, mat, [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], bot, top);
@@ -803,9 +916,7 @@ for (const S of Object.values(SCH)) {
   }
   for (const w of S.walls) buildWall(w, group, ctx.newMeshes);
   for (const f of S.fixtures) {
-    const [x0, z0, x1, z1] = f.r;
-    const y0 = f.y0 + (LV[f.lvl ?? 'main'] ?? 0);
-    block(group, FXM[f.m] ?? FXM.cab, x0, x1, z0, z1, y0, y0 + f.h);
+    addFurniture(f, group);
   }
   for (const roof of S.roofs) {
     if (roof.pts) {
@@ -866,6 +977,10 @@ function fmtFtIn(v) {
   return `${ft}′-${inch % 1 ? inch.toFixed(1) : inch}″`;
 }
 let plan = Object.keys(PLANS)[0];
+let measuring = false;
+let measureStart = null;
+let measureHover = null;
+let measurements = [];
 const onPlan = (lvl) => PLANS[plan].lvls.includes(lvl ?? 'main');
 function renderPlan() {
   const S = SCH[scheme];
@@ -885,9 +1000,29 @@ function renderPlan() {
     for (const points of roomPolys(r)) add(`<polygon class="p-rf f-${r.mat}${selected === r.id ? ' sel' : ''}" data-room="${r.id}" points="${svgPoints(points)}"/>`);
   }
   for (const f of S.fixtures.filter((x) => onPlan(x.lvl))) {
-    const [x0, z0, x1, z1] = f.r;
-    add(`<rect class="p-fx" x="${PX(x0)}" y="${PY(z0)}" width="${(x1 - x0) * K}" height="${(z1 - z0) * K}"/>`);
-    if (f.t) add(`<text class="p-fxt" x="${PX((x0 + x1) / 2)}" y="${PY((z0 + z1) / 2)}">${f.t}</text>`);
+    const poly = fixturePoly(f);
+    add(`<polygon class="p-fx${f.isNew && showNew ? ' new' : ''}" points="${svgPoints(poly)}"/>`);
+    if (f.kind) {
+      const line = (a, b) => add(`<line class="p-fx-detail" x1="${PX(a[0])}" y1="${PY(a[1])}" x2="${PX(b[0])}" y2="${PY(b[1])}"/>`);
+      if (f.symbol === 'bed') {
+        line(fixturePoint(f, [-f.width / 2, -f.depth / 2 + 1.1]), fixturePoint(f, [f.width / 2, -f.depth / 2 + 1.1]));
+        line(fixturePoint(f, [0, -f.depth / 2]), fixturePoint(f, [0, -f.depth / 2 + 1.1]));
+      } else if (f.symbol === 'sofa') {
+        line(fixturePoint(f, [-f.width / 2, -f.depth / 2 + 0.55]), fixturePoint(f, [f.width / 2, -f.depth / 2 + 0.55]));
+        line(fixturePoint(f, [-f.width / 6, -f.depth / 2 + 0.55]), fixturePoint(f, [-f.width / 6, f.depth / 2]));
+        line(fixturePoint(f, [f.width / 6, -f.depth / 2 + 0.55]), fixturePoint(f, [f.width / 6, f.depth / 2]));
+      } else if (f.symbol === 'table') {
+        const inset = [[-f.width * 0.35, -f.depth * 0.3], [f.width * 0.35, -f.depth * 0.3], [f.width * 0.35, f.depth * 0.3], [-f.width * 0.35, f.depth * 0.3]];
+        add(`<polygon class="p-fx-detail" points="${svgPoints(inset.map((p) => fixturePoint(f, p)))}"/>`);
+      } else if (f.symbol === 'storage' || f.symbol === 'appliance') {
+        line(fixturePoint(f, [0, -f.depth / 2]), fixturePoint(f, [0, f.depth / 2]));
+      } else if (f.symbol === 'tub') {
+        const inset = [[-f.width * 0.4, -f.depth * 0.32], [f.width * 0.4, -f.depth * 0.32], [f.width * 0.4, f.depth * 0.32], [-f.width * 0.4, f.depth * 0.32]];
+        add(`<polygon class="p-fx-detail" points="${svgPoints(inset.map((p) => fixturePoint(f, p)))}"/>`);
+      }
+    }
+    const center = f.kind ? f.at : [(f.r[0] + f.r[2]) / 2, (f.r[1] + f.r[3]) / 2];
+    if (f.t && !f.kind) add(`<text class="p-fxt" x="${PX(center[0])}" y="${PY(center[1])}">${f.t}</text>`);
   }
   const wallRect = (g, sa, sb, cls) => `<polygon class="${cls}" points="${svgPoints([g.point(sa, g.n0), g.point(sb, g.n0), g.point(sb, g.n1), g.point(sa, g.n1)])}"/>`;
   // the other floors' outside walls, dashed, so the plans line up
@@ -961,6 +1096,15 @@ function renderPlan() {
   dimH(sx.x0, sx.x1, sx.z0 - 3, fmtFtIn(sx.x1 - sx.x0));
   dimV(sx.z0, sx.z1, sx.x1 + 3.5, fmtFtIn(sx.z1 - sx.z0));
   for (const [kind, a, b, c, label] of S.dims) (kind === 'h' ? dimH : dimV)(a, b, c, label ?? fmtFtIn(b - a));
+  const measureLine = (a, b) => {
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    add(`<line class="p-measure" x1="${PX(a[0])}" y1="${PY(a[1])}" x2="${PX(b[0])}" y2="${PY(b[1])}"/>`);
+    add(`<circle class="p-measure-dot" cx="${PX(a[0])}" cy="${PY(a[1])}" r="2.6"/><circle class="p-measure-dot" cx="${PX(b[0])}" cy="${PY(b[1])}" r="2.6"/>`);
+    add(`<text class="p-measure-text" x="${PX((a[0] + b[0]) / 2)}" y="${PY((a[1] + b[1]) / 2) - 6}">${fmtFtIn(d)}</text>`);
+  };
+  for (const [a, b] of measurements) measureLine(a, b);
+  if (measureStart && measureHover) measureLine(measureStart, measureHover);
+  else if (measureStart) add(`<circle class="p-measure-dot" cx="${PX(measureStart[0])}" cy="${PY(measureStart[1])}" r="3"/>`);
   // north arrows + scale bar
   const ax = PX(BX.x1 + 1);
   const ay = PY(BX.z0 - MARGIN + 1);
@@ -975,9 +1119,49 @@ function renderPlan() {
 }
 const plan2d = document.getElementById('plan2d');
 plan2d.addEventListener('click', (e) => {
+  if (measuring) {
+    const point = planPoint(e);
+    if (!point) return;
+    if (measureStart) {
+      measurements = [...measurements, [measureStart, point]];
+      measureStart = null;
+      measureHover = null;
+    } else measureStart = point;
+    updateMeasureUI();
+    renderPlan();
+    return;
+  }
   const t = e.target.closest('[data-room]');
   if (t) select(t.dataset.room);
 });
+plan2d.addEventListener('pointermove', (e) => {
+  if (!measuring || !measureStart) return;
+  measureHover = planPoint(e);
+  renderPlan();
+});
+plan2d.addEventListener('pointerleave', () => {
+  if (!measureHover) return;
+  measureHover = null;
+  renderPlan();
+});
+function planPoint(e) {
+  const svg = plan2d.querySelector('svg');
+  const matrix = svg?.getScreenCTM();
+  if (!matrix) return null;
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse());
+  const quarter = (n) => Math.round(n * 4) / 4;
+  return [quarter(p.x / K + BX.x0 - MARGIN), quarter(p.y / K + BX.z0 - MARGIN - 3)];
+}
+function updateMeasureUI() {
+  $('measure').setAttribute('aria-pressed', String(measuring));
+  $('measure').textContent = measuring ? 'Measuring…' : 'Measure';
+  $('measure-clear').disabled = !measurements.length && !measureStart;
+  plan2d.classList.toggle('measuring', measuring);
+  if (mode === '2d') {
+    $('hint').hidden = !measuring;
+    $('hint').textContent = measureStart ? 'Click the second point · Esc cancels' : 'Click two points · measurements snap to 3″';
+  }
+}
 
 // ======================= UI STATE =======================
 const H_TOP = Math.max(WALL_H, ...Object.values(SCH).flatMap((s) => s.roofs.flatMap((r) => r.pts ? r.pts.map((p) => p[2]) : [r.top]))) + 3;
@@ -1140,6 +1324,8 @@ function setMode(m) {
   plan2d.hidden = !is2d;
   if (is2d) renderPlan();
   renderPlanButtons();
+  $('measure-tools').hidden = !is2d;
+  if (!is2d) { measuring = false; measureStart = null; measureHover = null; }
   if (has3D) {
     renderer.domElement.style.visibility = is2d ? 'hidden' : 'visible';
     labelRenderer.domElement.style.visibility = is2d ? 'hidden' : 'visible';
@@ -1147,6 +1333,7 @@ function setMode(m) {
   document.querySelectorAll('[data-view]').forEach((b) => { b.disabled = is2d; });
   cutInput.disabled = is2d;
   $('hint').hidden = is2d;
+  updateMeasureUI();
   refreshVisibility();
   writeHash();
 }
@@ -1206,6 +1393,27 @@ function select(id) {
 
 document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => goView(b.dataset.view)));
+$('measure').addEventListener('click', () => {
+  measuring = !measuring;
+  measureStart = null;
+  measureHover = null;
+  updateMeasureUI();
+  renderPlan();
+});
+$('measure-clear').addEventListener('click', () => {
+  measureStart = null;
+  measureHover = null;
+  measurements = [];
+  updateMeasureUI();
+  renderPlan();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !measuring) return;
+  if (measureStart) { measureStart = null; measureHover = null; }
+  else measuring = false;
+  updateMeasureUI();
+  renderPlan();
+});
 cutInput.addEventListener('input', () => {
   document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
   setCut(parseFloat(cutInput.value));
@@ -1253,6 +1461,7 @@ function resize() {
   labelRenderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  if (mode === '2d') { updateMeasureUI(); return; }
   $('hint').textContent = w < 560
     ? 'Drag to orbit · pinch to zoom · tap a room'
     : 'Drag to orbit · right-drag to pan · scroll to zoom · click a room';

@@ -22,5 +22,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const out = path.resolve(process.argv[2] ?? path.join(ROOT, '_site', 'index.html'));
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, page());
+  const assets = path.join(ROOT, 'assets');
+  if (fs.existsSync(assets)) fs.cpSync(assets, path.join(path.dirname(out), 'assets'), { recursive: true });
   console.log(`wrote ${path.relative(process.cwd(), out)}`);
 }

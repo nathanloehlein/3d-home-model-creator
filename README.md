@@ -11,7 +11,8 @@ A 3D model and floor plan of a house, built from one block of data in one HTML f
 
 - **One file, nothing to install.** `model.html` holds the data and the renderer. three.js loads from a CDN. The tooling is plain Node with no dependencies.
 - **3D model**: orbit, camera presets and a cut-height slider for seeing inside. Click a room to see its size, level and ceiling. Gable, hip and shed roof planes and sloped ceilings use the same property data.
-- **Floor plan**: rectangular or polygon rooms, diagonal walls, door swings, fixtures, windows, overall dimensions, north arrows and a scale bar, with one plan per floor.
+- **Floor plan**: rectangular or polygon rooms, diagonal walls, door swings, furniture symbols, interactive measurements, fixtures, windows, overall dimensions, north arrows and a scale bar, with one plan per floor.
+- **Furniture catalog**: beds, sofas, tables, desks, storage, kitchen and bathroom pieces with size and rotation controls. Bundled CC0 models add recognizable 3D shapes while procedural geometry remains a fast fallback.
 - **Remodel schemes**: list only what changes, and the page compares it with the house as it stands.
   - New walls and filled-in openings are blue.
   - Walls taken out are dashed.
@@ -170,6 +171,22 @@ Each room is `{ id, name, lvl, mat, rects: [[x0, z0, x1, z1], …], at: [x, z] }
 - `facts` and `notes` fill the sidebar.
 - `lights` are the Home Assistant light positions: `[name, x, z, height]`.
 
+### Furniture
+
+Use `FURNITURE(type, options)` for common movable items. Every item needs `at: [x, z]`; give it a stable `id` when remodel schemes may move or remove it.
+
+```js
+FURNITURE('queen-bed', { id: 'primary-bed', at: [32, 7], rotate: 90 }),
+FURNITURE('sofa', { id: 'living-sofa', at: [10, 11], width: 8, rotate: 180 }),
+FURNITURE('dining-table', { id: 'dining-table', at: [18, 8], width: 7, depth: 3.5 }),
+```
+
+Built-in types are `twin-bed`, `queen-bed`, `king-bed`, `sofa`, `loveseat`, `dining-table`, `desk`, `dresser`, `wardrobe`, `refrigerator`, `range`, `toilet`, `vanity` and `tub`. Override `width`, `depth`, `height`, `rotate`, `label` or `mat` per item. Rotation is clockwise in plan degrees.
+
+The bundled low-poly GLBs are selected from the [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit), licensed CC0. Their source and license are recorded in `assets/furniture/kenney/`. If an asset cannot load, the page automatically keeps its procedural model.
+
+In **Floor plan**, select **Measure**, then click two points. Measurements snap to 3″ and remain visible while you compare schemes; **Clear** removes them. Press Escape to cancel the current line or leave measurement mode.
+
 ## Remodel schemes
 
 Remodel options live in `SCHEMES`, right after `PROPERTY` in the DATA block. Without any, the page is just the existing house. With some, a Scheme switcher appears: **Existing**, then each scheme in order.
@@ -249,9 +266,8 @@ reference/               for your measurements, survey and photos
 
 ## Geometry notes
 
-- Floor polygons should be simple outlines without holes. Use `polys` to split disconnected or complex floor areas into simpler pieces.
+- Floor polygons should be simple outlines without holes. Concave outlines are supported in both the page and GLB export; use `polys` for disconnected areas.
 - Roof and ceiling surfaces are planar. Curved roofs require several approximating planes.
-- The GLB exporter triangulates polygon faces as a fan, so split concave room footprints into convex polygons with `polys` for reliable Home Assistant output.
 
 ## License
 

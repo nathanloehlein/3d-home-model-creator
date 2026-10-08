@@ -20,17 +20,17 @@ const between = (a, b) => html.slice(html.indexOf(a) + a.length, html.indexOf(b)
 
 // ---- reuse the page's data and wall builder, with block() collecting boxes instead of meshes
 const boxes = [];
-const block = (group, mat, x0, x1, z0, z1, bot, top) => {
-  const B = typeof bot === 'function' ? bot : () => bot;
-  const T = typeof top === 'function' ? top : () => top;
-  boxes.push({ mat: mat.name, x0, x1, z0, z1, b: [B(x0), B(x1)], t: [T(x0), T(x1)] });
+const prism = (group, mat, poly, bot, top) => {
+  const valueAt = (v, [x, z], i) => Array.isArray(v) ? v[i] : typeof v === 'function' ? v(x, z, i) : v;
+  boxes.push({ mat: mat.name, poly, b: poly.map((p, i) => valueAt(bot, p, i)), t: poly.map((p, i) => valueAt(top, p, i)) });
   return {};
 };
+const block = (group, mat, x0, x1, z0, z1, bot, top) => prism(group, mat, [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], bot, top);
 // bearing and new-work colours are page-only: in HA they're plain interior wall
 const M = { ...Object.fromEntries(['siding', 'wall', 'glass', 'door', 'gdoor'].map((n) => [n, { name: n }])), bearing: { name: 'wall' }, newWall: { name: 'wall' } };
 const src = ['DATA', 'WALLS', 'SCHEME'].map((b) => between(`/* ${b}:BEGIN */`, `/* ${b}:END */`)).join('\n');
-const { PROPERTY: P, LV, PAL, buildWall, resolveSchemes, SCHEMES } = new Function('block', 'M',
-  `${src}\nreturn { PROPERTY, LV, PAL, buildWall, resolveSchemes, SCHEMES: typeof SCHEMES === 'undefined' ? {} : SCHEMES };`)(block, M);
+const { PROPERTY: P, LV, PAL, buildWall, resolveSchemes, SCHEMES, roomPolys } = new Function('block', 'prism', 'M',
+  `${src}\nreturn { PROPERTY, LV, PAL, buildWall, resolveSchemes, roomPolys, SCHEMES: typeof SCHEMES === 'undefined' ? {} : SCHEMES };`)(block, prism, M);
 
 // ---- which layout: the existing house, or a scheme's (its own lists; site and lights are shared)
 const at = process.argv.indexOf('--scheme');
@@ -57,7 +57,7 @@ const WALL_OBJ = { siding: 'walls_exterior', wall: 'walls_interior', glass: 'win
 for (const b of boxes) put(WALL_OBJ[b.mat], b.mat, b);
 for (const [x0, z0, x1, z1] of L.foundation || []) put('foundation', 'found', box(x0, x1, z0, z1, LV.grade, LV.main - 0.06));
 const id = (s) => s.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
-for (const r of L.rooms) for (const [x0, z0, x1, z1] of r.rects) put(`room_${id(r.id)}`, r.mat, box(x0, x1, z0, z1, LV[r.lvl] - 0.06, LV[r.lvl]));
+for (const r of L.rooms) for (const poly of roomPolys(r)) put(`room_${id(r.id)}`, r.mat, { poly, bot: LV[r.lvl] - 0.06, top: LV[r.lvl] });
 for (const f of L.fixtures) {
   const [x0, z0, x1, z1] = f.r;
   const y0 = f.y0 + (LV[f.lvl ?? 'main'] ?? 0);
@@ -81,11 +81,14 @@ const Pt = (x, y, z) => [(x - OX) * FT, (y - LV.grade) * FT, (z - OZ) * FT];
 function faces(shape) {
   if (shape.poly) {
     const pts = shape.poly;
-    const out = [pts.map(([x, z]) => Pt(x, shape.top, z)), pts.map(([x, z]) => Pt(x, shape.bot, z))];
+    const bottoms = shape.b ?? pts.map(() => shape.bot);
+    const tops = shape.t ?? pts.map(() => shape.top);
+    const out = [pts.map(([x, z], i) => Pt(x, tops[i], z)), pts.map(([x, z], i) => Pt(x, bottoms[i], z))];
     for (let i = 0; i < pts.length; i++) {
       const [ax, az] = pts[i];
       const [bx, bz] = pts[(i + 1) % pts.length];
-      out.push([Pt(ax, shape.bot, az), Pt(bx, shape.bot, bz), Pt(bx, shape.top, bz), Pt(ax, shape.top, az)]);
+      const j = (i + 1) % pts.length;
+      out.push([Pt(ax, bottoms[i], az), Pt(bx, bottoms[j], bz), Pt(bx, tops[j], bz), Pt(ax, tops[i], az)]);
     }
     return out;
   }

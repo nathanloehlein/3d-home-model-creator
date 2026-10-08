@@ -14,7 +14,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const html = fs.readFileSync(path.join(ROOT, 'model.html'), 'utf8');
 const between = (a, b) => html.slice(html.indexOf(a) + a.length, html.indexOf(b));
 const src = ['DATA', 'WALLS', 'SCHEME'].map((b) => between(`/* ${b}:BEGIN */`, `/* ${b}:END */`)).join('\n');
-const names = ['PROPERTY', 'WIN', 'DOOR', 'OPEN', 'revise', 'mergeSpans', 'cutSpans', 'diffWalls', 'resolveSchemes'];
+const names = ['PROPERTY', 'WIN', 'DOOR', 'OPEN', 'revise', 'wallGeom', 'mergeSpans', 'cutSpans', 'diffWalls', 'resolveSchemes'];
 const K = new Function('block', 'M',
   `${src}\nreturn { ${names.join(', ')}, SCHEMES: typeof SCHEMES === 'undefined' ? {} : SCHEMES };`)(() => ({}), {});
 const { PROPERTY: P, WIN, OPEN, DOOR } = K;
@@ -55,6 +55,27 @@ test('a wall where there was none is new along its whole length', () => {
   const { walls, removed } = K.diffWalls([], [hwall(32, 40, 24)]);
   assert.deepEqual(walls[0].fresh, [[32, 40]]);
   assert.deepEqual(removed, []);
+});
+
+test('diagonal wall uses distance from its first endpoint', () => {
+  const g = K.wallGeom({ x0: 2, z0: 3, x1: 8, z1: 11, open: [DOOR(2, 5)] });
+  assert.equal(g.diag, true);
+  assert.equal(g.a1, 10);
+  assert.deepEqual(g.point(5).map((n) => Math.round(n * 10) / 10), [5, 7]);
+  assert.deepEqual(g.ops.map((o) => [o.a, o.b]), [[2, 5]]);
+});
+
+test('diagonal wall diff projects matching spans', () => {
+  const before = [{ x0: 0, z0: 0, x1: 12, z1: 9 }];
+  const after = [{ x0: 0, z0: 0, x1: 8, z1: 6 }];
+  const { walls, removed } = K.diffWalls(before, after);
+  assert.deepEqual(walls[0].fresh, []);
+  assert.deepEqual(removed.map((r) => [Math.round(r.a0), Math.round(r.a1)]), [[10, 15]]);
+});
+
+test('doors carry hinge and swing metadata', () => {
+  assert.deepEqual(DOOR(2, 5), { a: 2, b: 5, sill: 0, head: 6.8, fill: 'door', hinge: 'a', swing: 1 });
+  assert.equal(DOOR(2, 5, { hinge: 'b', swing: -1 }).hinge, 'b');
 });
 
 test('closing an opening counts as new work', () => {
@@ -111,6 +132,15 @@ test('the shell takes out every inside wall and keeps fixed fixtures', () => {
   assert.match(S.summary, /inside wall/);
 });
 
+test('the shell preserves polygon room footprints', () => {
+  const room = { id: 'angled', name: 'Angled', lvl: 'main', mat: 'woodMain', poly: [[0, 0], [8, 0], [6, 5], [0, 5]] };
+  const property = { ...P, rooms: [room], fixtures: [] };
+  const S = K.resolveSchemes(property, { shell: { name: 'Shell', shell: true } }).shell;
+  assert.deepEqual(S.rooms[0].polys, [room.poly]);
+  assert.equal(S.rooms[0].rects.length, 0);
+  assert.equal(S.rooms[0].isNew, false);
+});
+
 test('example Plan A: interior changes are found', { skip: EXAMPLE }, () => {
   const S = SCH['plan-a'];
   const wall = (id) => S.walls.find((w) => w.id === id);
@@ -119,7 +149,7 @@ test('example Plan A: interior changes are found', { skip: EXAMPLE }, () => {
   assert.deepEqual(wall('spine').open.map((o) => o.isNew), [true, false]);
   assert.deepEqual(wall('south').fresh, [[34, 38]]);
   assert.deepEqual(wall('east').open.map((o) => o.isNew), [false, true]);
-  assert.deepEqual(wall('mud-cl').fresh, [[32, 40]]);
+  assert.deepEqual(wall('mud-cl').fresh.map(([a, b]) => [Math.round(a * 100) / 100, Math.round(b * 100) / 100]), [[0, 8.94]]);
   const isNew = Object.fromEntries(S.rooms.map((r) => [r.id, r.isNew]));
   assert.equal(isNew.den, true);
   assert.equal(isNew.mud, true);

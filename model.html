@@ -136,6 +136,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .p-rem.bear { stroke: var(--accent); stroke-width: 1.4; }
 .p-win { fill: var(--panel); stroke: var(--ink); stroke-width: 0.8; }
 .p-win.new { stroke: var(--new); stroke-width: 1.4; }
+.p-door { fill: none; stroke: var(--ink-2); stroke-width: 0.8; }
+.p-door.new { stroke: var(--new); stroke-width: 1.2; }
 .p-ghost { fill: none; stroke: var(--ink-2); stroke-width: 0.8; stroke-dasharray: 4 3; opacity: 0.6; }
 .p-fx { fill: none; stroke: var(--ink-2); stroke-width: 0.8; }
 .p-fxt { font: 500 7.5px var(--font-mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
@@ -262,9 +264,17 @@ const PAL = {
 const FLOOR_TEXT = { woodMain: 'Wood', carpet: 'Carpet', tile: 'Tile', wet: 'Baths and laundry', closet: 'Closets', mech: 'Mechanical', conc: 'Concrete' };
 // Openings along a wall, measured along it: a..b in plan feet, sill/head above the wall's base.
 const WIN = (a, b, sill = 3, head = 6.8) => ({ a, b, sill, head, fill: 'glass' });
-const DOOR = (a, b, head = 6.8) => ({ a, b, sill: 0, head, fill: 'door' });
+const DOOR = (a, b, head = 6.8, extra = {}) => {
+  if (typeof head === 'object') { extra = head; head = 6.8; }
+  return { a, b, sill: 0, head, fill: 'door', hinge: 'a', swing: 1, ...extra };
+};
 const OPEN = (a, b, head = 6.8) => ({ a, b, sill: 0, head });
 const GDOOR = (a, b, head = 7) => ({ a, b, sill: 0, head, fill: 'gdoor' });
+// Sloped roof/ceiling plane: [x, z, height] corners, clockwise or counter-clockwise.
+const PLANE = (pts, th = 0.6) => ({ pts, th });
+const rectPoly = ([x0, z0, x1, z1]) => [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+const roomPolys = (r) => [...(r.rects || []).map(rectPoly), ...(r.polys || []), ...(r.poly ? [r.poly] : [])];
+const exampleGableTop = (x, z) => 9.2 + 2.8 * (1 - Math.abs(z - 14) / 15.5);
 // Fixtures: label, [x0, z0, x1, z1], height, material, base height
 const fx = (t, r, h, m, y0 = 0, extra = {}) => ({ t, r, h, m, y0, ...extra });
 // For schemes: copy a list from the existing house by id. { id: null } drops that item, { id: {...} } changes fields.
@@ -282,20 +292,20 @@ const PROPERTY = {
   notes: ['Interior walls are measured by hand, so expect a few inches of error.'],
   ext: [
     { id: 'north', x0: 0, z0: 0, x1: 40, z1: 0, out: -1, open: [WIN(4, 10), WIN(28, 34)] },
-    { id: 'south', x0: 0, z0: 28, x1: 40, z1: 28, out: 1, open: [WIN(3, 9), DOOR(16, 19), WIN(34, 38)] },
-    { id: 'west', x0: 0, z0: 0, x1: 0, z1: 28, out: -1, open: [WIN(4, 10), WIN(19, 25)] },
-    { id: 'east', x0: 40, z0: 0, x1: 40, z1: 28, out: 1, open: [WIN(4, 10)] },
+    { id: 'south', x0: 0, z0: 28, x1: 40, z1: 28, out: 1, open: [WIN(3, 9), DOOR(16, 19, { hinge: 'b', swing: -1 }), WIN(34, 38)] },
+    { id: 'west', x0: 0, z0: 0, x1: 0, z1: 28, out: -1, top: exampleGableTop, open: [WIN(4, 10), WIN(19, 25)] },
+    { id: 'east', x0: 40, z0: 0, x1: 40, z1: 28, out: 1, top: exampleGableTop, open: [WIN(4, 10)] },
   ],
   parts: [
     { id: 'spine', x0: 24, z0: 0.5, x1: 24, z1: 27.5, bearing: true, open: [OPEN(10, 12.8), OPEN(22, 24.6)] },
     { id: 'living-s', x0: 0, z0: 16, x1: 24, z1: 16, open: [OPEN(15, 23)] },
-    { id: 'bed-2-e', x0: 14, z0: 16, x1: 14, z1: 28, open: [OPEN(18, 20.8)] },
-    { id: 'bed-1-s', x0: 24, z0: 14, x1: 40, z1: 14, open: [OPEN(34, 36.6)] },
+    { id: 'bed-2-e', x0: 14, z0: 16, x1: 14, z1: 28, open: [DOOR(18, 20.8, { hinge: 'b', swing: 1 })] },
+    { id: 'bed-1-s', x0: 24, z0: 14, x1: 40, z1: 14, open: [DOOR(34, 36.6, { hinge: 'a', swing: 1 })] },
     { id: 'bath-e', x0: 32, z0: 14, x1: 32, z1: 28 },
   ],
   rooms: [
     { id: 'living', name: 'Living / kitchen', lvl: 'main', mat: 'woodMain', rects: [[0, 0, 24, 16]], at: [10, 10] },
-    { id: 'bed-1', name: 'Bedroom 1', lvl: 'main', mat: 'carpet', rects: [[24, 0, 40, 14]], at: [32, 7] },
+    { id: 'bed-1', name: 'Bedroom 1', lvl: 'main', mat: 'carpet', rects: [[24, 0, 40, 14]], at: [32, 7], ceil: 'Sloped, 8′–10′', ceilings: [PLANE([[24, 0, 8], [40, 0, 10], [40, 14, 10], [24, 14, 8]], 0.12)] },
     { id: 'bed-2', name: 'Bedroom 2', lvl: 'main', mat: 'carpet', rects: [[0, 16, 14, 28]], at: [7, 22] },
     { id: 'hall', name: 'Entry / hall', lvl: 'main', mat: 'woodMain', rects: [[14, 16, 24, 28]], at: [19, 22] },
     { id: 'bath', name: 'Bath', lvl: 'main', mat: 'wet', rects: [[24, 14, 32, 28]], at: [28, 21] },
@@ -311,7 +321,10 @@ const PROPERTY = {
     fx('Furn', [37.5, 25.2, 39.6, 27.6], 5.5, 'steel', 0, { fixed: true }),
   ],
   foundation: [[0, 0, 40, 28]],
-  roofs: [{ r: [-1.5, -1.5, 41.5, 29.5], top: 9.6, th: 0.6 }],
+  roofs: [
+    PLANE([[-1.5, -1.5, 9.2], [41.5, -1.5, 9.2], [41.5, 14, 12], [-1.5, 14, 12]]),
+    PLANE([[-1.5, 14, 12], [41.5, 14, 12], [41.5, 29.5, 9.2], [-1.5, 29.5, 9.2]]),
+  ],
   site: {
     ground: [-45, -40, 85, 75],
     lot: [[-20, -25], [60, -25], [60, 55], [-20, 55]],
@@ -344,21 +357,21 @@ const SCHEMES = {
     name: 'Plan A',
     summary: 'Open plan. The living room opens to the hall and, through the bearing wall, to bedroom 1, which becomes a den. The utility room becomes a mudroom with laundry and its own outside door.',
     ext: revise(PROPERTY.ext, {
-      south: { open: [WIN(3, 9), DOOR(16, 19)] },
-      east: { open: [WIN(4, 10), DOOR(20, 23)] },
+      south: { open: [WIN(3, 9), DOOR(16, 19, { hinge: 'b', swing: -1 })] },
+      east: { open: [WIN(4, 10), DOOR(20, 23, { hinge: 'a', swing: -1 })] },
     }),
     parts: [
       ...revise(PROPERTY.parts, {
         spine: { open: [OPEN(2, 11, 7.5), OPEN(22, 24.6)] },
         'living-s': { x1: 14, open: [] },
       }),
-      { id: 'mud-cl', x0: 32, z0: 24, x1: 40, z1: 24, open: [OPEN(34, 37)] },
+      { id: 'mud-cl', x0: 32, z0: 24, x1: 40, z1: 20, open: [DOOR(2, 5, { hinge: 'b', swing: -1 })] },
     ],
     rooms: [
       ...revise(PROPERTY.rooms, { 'bed-1': null, utility: null }),
       { id: 'den', name: 'Den', sub: 'was bedroom 1', lvl: 'main', mat: 'woodMain', rects: [[24, 0, 40, 14]], at: [32, 6], note: 'Open to the living room through a 9′ cased opening in the bearing wall.' },
-      { id: 'mud', name: 'Mudroom', sub: 'laundry · was the utility room', lvl: 'main', mat: 'wet', rects: [[32, 14, 40, 24]], at: [36, 16.5] },
-      { id: 'mud-cl', name: 'Coats + furnace', lvl: 'main', mat: 'closet', rects: [[32, 24, 40, 28]] },
+      { id: 'mud', name: 'Mudroom', sub: 'laundry · was the utility room', lvl: 'main', mat: 'wet', poly: [[32, 14], [40, 14], [40, 20], [32, 24]], at: [36, 16.5] },
+      { id: 'mud-cl', name: 'Coats + furnace', lvl: 'main', mat: 'closet', poly: [[32, 24], [40, 20], [40, 28], [32, 28]] },
     ],
     fixtures: [
       ...revise(PROPERTY.fixtures, { 'bed-1-bed': null }),
@@ -397,7 +410,7 @@ const SCHEMES = {
       fx('WC', [28.6, -2.4, 30.6, -0.8], 1.3, 'appl'),
     ],
     foundation: [...PROPERTY.foundation, [28, -8, 40, 0]],
-    roofs: [...PROPERTY.roofs, { r: [26.5, -9.5, 41.5, -1.5], top: 9.6, th: 0.6 }],
+    roofs: [...PROPERTY.roofs, PLANE([[26.5, -9.5, 9], [41.5, -9.5, 9], [41.5, -1.5, 10.4], [26.5, -1.5, 10.4]])],
     scope: [
       'Foundation, walls and roof for a 12′ × 8′ addition, tied into the main roof.',
       'The old north wall stays between the bedroom and the en-suite. Its window is filled in and a new door cut at the east end.',
@@ -417,16 +430,32 @@ const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 /* WALLS:BEGIN */
 // Shared by 3D, 2D and the GLB export: where a wall sits and which stretches are solid.
 function wallGeom(w) {
-  const horiz = w.z0 === w.z1;
-  const a0 = Math.min(horiz ? w.x0 : w.z0, horiz ? w.x1 : w.z1);
-  const a1 = Math.max(horiz ? w.x0 : w.z0, horiz ? w.x1 : w.z1);
-  const c = horiz ? w.z0 : w.x0;
+  const dx = w.x1 - w.x0;
+  const dz = w.z1 - w.z0;
+  const len = Math.hypot(dx, dz);
+  if (len < 0.01) throw new Error(`Wall ${w.id ?? ''} has no length`);
+  const horiz = Math.abs(dz) < 0.0001;
+  const vert = Math.abs(dx) < 0.0001;
+  const diag = !horiz && !vert;
+  const ux = dx / len;
+  const uz = dz / len;
+  // Preserve legacy out semantics on axis walls. Diagonal out: 1 = right side when walking x0,z0 -> x1,z1.
+  const nx = horiz ? 0 : vert ? 1 : -uz;
+  const nz = horiz ? 1 : vert ? 0 : ux;
+  const a0 = diag ? 0 : Math.min(horiz ? w.x0 : w.z0, horiz ? w.x1 : w.z1);
+  const a1 = diag ? len : Math.max(horiz ? w.x0 : w.z0, horiz ? w.x1 : w.z1);
   const t = w.t ?? (w.out ? 0.5 : 0.35);
   const yb = w.yb ?? LV[w.lvl ?? 'main'] ?? 0;
-  const n0 = w.out ? Math.min(c, c - w.out * t) : c - t / 2;
-  const n1 = w.out ? Math.max(c, c - w.out * t) : c + t / 2;
+  const n0 = w.out ? Math.min(0, -w.out * t) : -t / 2;
+  const n1 = w.out ? Math.max(0, -w.out * t) : t / 2;
   const ops = (w.open || []).map((o) => ({ sill: yb, head: yb + 6.75, ...o })).sort((p, q) => p.a - q.a);
-  return { horiz, a0, a1, c, t, yb, n0, n1, ops };
+  const point = (a, n = 0) => {
+    if (horiz) return [a, w.z0 + n];
+    if (vert) return [w.x0 + n, a];
+    return [w.x0 + ux * a + nx * n, w.z0 + uz * a + nz * n];
+  };
+  const along = (x, z) => (diag ? (x - w.x0) * ux + (z - w.z0) * uz : horiz ? x : z);
+  return { horiz, vert, diag, a0, a1, t, yb, n0, n1, ops, ux, uz, nx, nz, point, along };
 }
 // newMeshes (optional) collects [mesh, usual material] for each stretch of new work, so the page can recolour it.
 function buildWall(w, group, newMeshes) {
@@ -438,17 +467,20 @@ function buildWall(w, group, newMeshes) {
   if (w.out) {
     // exterior: a siding skin on the outside face, wall colour inside
     const s = w.out;
-    const skin = g.c - s * 0.12;
-    const back = g.c - s * g.t;
-    layers = [[Math.min(g.c, skin), Math.max(g.c, skin), M.siding], [Math.min(skin, back), Math.max(skin, back), inner]];
+    const skin = -s * 0.12;
+    const back = -s * g.t;
+    layers = [[Math.min(0, skin), Math.max(0, skin), M.siding], [Math.min(skin, back), Math.max(skin, back), inner]];
     core = [Math.min(skin, back), Math.max(skin, back)];
   } else {
     layers = [[g.n0, g.n1, inner]];
     core = [g.n0, g.n1];
   }
-  const put = (mat, n0, n1, sa, sb, bot, tp) => (g.horiz
-    ? block(group, mat, sa, sb, n0, n1, bot, tp)
-    : block(group, mat, n0, n1, sa, sb, bot, tp));
+  const put = (mat, n0, n1, sa, sb, bot, tp) => {
+    const points = [g.point(sa, n0), g.point(sb, n0), g.point(sb, n1), g.point(sa, n1)];
+    const B = typeof bot === 'function' ? (x, z) => bot(x, z, g.along(x, z)) : bot;
+    const T = typeof tp === 'function' ? (x, z) => tp(x, z, g.along(x, z)) : tp;
+    return prism(group, mat, points, B, T);
+  };
   const fresh = w.fresh || []; // sorted [a, b] stretches of new work, set by the scheme diff
   for (const [n0, n1, mat] of layers) {
     const solid = (sa, sb, bot, tp) => {
@@ -466,7 +498,9 @@ function buildWall(w, group, newMeshes) {
     for (const o of g.ops) {
       if (o.a > cur) solid(cur, o.a, g.yb, top);
       if (o.sill > g.yb + 0.01) solid(o.a, o.b, g.yb, o.sill);
-      const topHere = g.horiz ? Math.max(top(o.a), top(o.b)) : top((n0 + n1) / 2);
+      const pa = g.point(o.a);
+      const pb = g.point(o.b);
+      const topHere = Math.max(top(pa[0], pa[1], o.a), top(pb[0], pb[1], o.b));
       if (topHere > o.head + 0.01) solid(o.a, o.b, o.head, top);
       cur = o.b;
     }
@@ -508,9 +542,23 @@ const clipSpans = (spans, a0, a1) => mergeSpans(spans.map(([a, b]) => [Math.max(
 // Same wall: same direction and level, and the thicknesses overlap. Matching on thickness rather than the drawn line
 // means an old outside wall kept as an inside wall (an addition) still counts as the same wall.
 function sameWall(x, y) {
-  return x.g.horiz === y.g.horiz && (x.w.lvl ?? 'main') === (y.w.lvl ?? 'main')
-    && Math.min(x.g.n1, y.g.n1) - Math.max(x.g.n0, y.g.n0) > 0.05;
+  if ((x.w.lvl ?? 'main') !== (y.w.lvl ?? 'main')) return false;
+  const parallel = Math.abs(x.g.ux * y.g.uz - x.g.uz * y.g.ux) < 0.001;
+  if (!parallel) return false;
+  const [xx, xz] = x.g.point((x.g.a0 + x.g.a1) / 2);
+  const [yx, yz] = y.g.point((y.g.a0 + y.g.a1) / 2);
+  const separation = Math.abs((yx - xx) * x.g.nx + (yz - xz) * x.g.nz);
+  return separation < (x.g.t + y.g.t) / 2 + 0.05;
 }
+const spanOn = (target, source, a, b) => {
+  const p = source.point(a);
+  const q = source.point(b);
+  return [target.along(...p), target.along(...q)].sort((x, y) => x - y);
+};
+const opOn = (target, source, o) => {
+  const [a, b] = spanOn(target, source, o.a, o.b);
+  return { ...o, a, b };
+};
 // walls: the after list, each with fresh (new stretches plus filled-in openings) and its openings tagged isNew.
 // removed: the stretches of before walls that nothing in after covers.
 function diffWalls(before, after) {
@@ -518,9 +566,9 @@ function diffWalls(before, after) {
   const A = after.map((w) => ({ w, g: wallGeom(w) }));
   const walls = A.map((x) => {
     const olds = B.filter((y) => sameWall(x, y));
-    const oldOps = olds.flatMap((y) => y.g.ops);
+    const oldOps = olds.flatMap((y) => y.g.ops.map((o) => opOn(x.g, y.g, o)));
     const whole = [[x.g.a0, x.g.a1]];
-    const added = cutSpans(whole, olds.map((y) => [y.g.a0, y.g.a1]));
+    const added = cutSpans(whole, olds.map((y) => spanOn(x.g, y.g, y.g.a0, y.g.a1)));
     const filled = cutSpans(clipSpans(oldOps.map((o) => [o.a, o.b]), x.g.a0, x.g.a1), x.g.ops.map((o) => [o.a, o.b]));
     const open = (x.w.open || []).map((o) => ({
       ...o,
@@ -528,22 +576,27 @@ function diffWalls(before, after) {
     }));
     return { ...x.w, open, fresh: x.w.isNew ? whole : mergeSpans([...added, ...filled]) };
   });
-  const removed = B.flatMap((y) => cutSpans([[y.g.a0, y.g.a1]], A.filter((x) => sameWall(x, y)).map((x) => [x.g.a0, x.g.a1]))
+  const removed = B.flatMap((y) => cutSpans([[y.g.a0, y.g.a1]], A.filter((x) => sameWall(x, y)).map((x) => spanOn(y.g, x.g, x.g.a0, x.g.a1)))
     .map(([a, b]) => ({ ...y.g, a0: a, a1: b, lvl: y.w.lvl ?? 'main', bearing: !!y.w.bearing })));
   return { walls, removed };
 }
 // The Shell: no inside walls, only fixed fixtures, and one room per level that keeps each old room's ceiling height.
 function shellLayout(P) {
   const size = ([x0, z0, x1, z1]) => (x1 - x0) * (z1 - z0);
-  const area = (r) => r.rects.reduce((s, q) => s + size(q), 0);
+  const polySize = (p) => Math.abs(p.reduce((s, [x, z], i) => s + x * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * z, 0)) / 2;
+  const area = (r) => (r.rects || []).reduce((s, q) => s + size(q), 0) + (r.polys || []).reduce((s, p) => s + polySize(p), 0) + (r.poly ? polySize(r.poly) : 0);
   const rooms = [...new Set(P.rooms.map((r) => r.lvl))].map((lvl) => {
     const rs = P.rooms.filter((r) => r.lvl === lvl);
-    const rects = rs.flatMap((r) => r.rects.map(([x0, z0, x1, z1, h]) => [x0, z0, x1, z1, h ?? r.ceilH ?? WALL_H]));
-    const big = rects.reduce((p, q) => (size(q) > size(p) ? q : p));
+    const rects = rs.flatMap((r) => (r.rects || []).map(([x0, z0, x1, z1, h]) => [x0, z0, x1, z1, h ?? r.ceilH ?? WALL_H]));
+    const polys = rs.flatMap((r) => [...(r.polys || []), ...(r.poly ? [r.poly] : [])]);
+    const all = [...rects.map(rectPoly), ...polys];
+    const big = all.reduce((p, q) => (polySize(q) > polySize(p) ? q : p));
     const most = rs.reduce((p, q) => (area(q) > area(p) ? q : p));
+    const xs = big.map((p) => p[0]);
+    const zs = big.map((p) => p[1]);
     return {
-      id: `shell-${lvl}`, name: LEVELS[lvl] ?? lvl, sub: 'every inside wall taken out', lvl, mat: most.mat, rects,
-      at: [(big[0] + big[2]) / 2, (big[1] + big[3]) / 2], ceil: 'As existing', isNew: false,
+      id: `shell-${lvl}`, name: LEVELS[lvl] ?? lvl, sub: 'every inside wall taken out', lvl, mat: most.mat, rects, polys,
+      at: [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2], ceil: 'As existing', isNew: false,
     };
   });
   return { parts: [], fixtures: P.fixtures.filter((f) => f.fixed), rooms };
@@ -558,7 +611,9 @@ function resolveSchemes(P, schemes) {
     const { walls, removed } = diffWalls([...P.ext, ...P.parts], [...lay.ext, ...lay.parts]);
     const rooms = lay.rooms.map((r) => ({
       ...r,
-      isNew: r.isNew ?? !P.rooms.some((o) => o.id === r.id && JSON.stringify(o.rects) === JSON.stringify(r.rects)),
+      isNew: r.isNew ?? !P.rooms.some((o) => o.id === r.id
+        && JSON.stringify(roomPolys(o)) === JSON.stringify(roomPolys(r))
+        && JSON.stringify(o.ceilings || []) === JSON.stringify(r.ceilings || [])),
     }));
     out[id] = {
       ...s, ...lay, id, rooms, walls, removed,
@@ -642,32 +697,33 @@ const siteGroup = new THREE.Group();
 const lightGroup = new THREE.Group();
 scene.add(houseGroup, siteGroup, lightGroup);
 
-// Box whose top (and optionally bottom) varies with x, so walls and slabs can follow a roof slope.
-function slabGeo(x0, x1, z0, z1, bot, top) {
-  const B = typeof bot === 'function' ? bot : () => bot;
-  const T = typeof top === 'function' ? top : () => top;
-  const c = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
-  const b = c.map(([x, z]) => [x, B(x), z]);
-  const t = c.map(([x, z]) => [x, T(x), z]);
-  const faces = [
-    [t[0], t[3], t[2], t[1]], [b[0], b[1], b[2], b[3]],
-    [b[0], t[0], t[1], b[1]], [b[1], t[1], t[2], b[2]],
-    [b[2], t[2], t[3], b[3]], [b[3], t[3], t[0], b[0]],
-  ];
+// Extruded polygon with independently varying bottom/top. Powers diagonal walls, polygon rooms and roof planes.
+function prismGeo(points, bot, top) {
+  const valueAt = (v, [x, z], i) => Array.isArray(v) ? v[i] : typeof v === 'function' ? v(x, z, i) : v;
+  const b = points.map((q, i) => [q[0], valueAt(bot, q, i), q[1]]);
+  const t = points.map((q, i) => [q[0], valueAt(top, q, i), q[1]]);
+  const tris = THREE.ShapeUtils.triangulateShape(points.map(([x, z]) => new THREE.Vector2(x, z)), []);
   const p = [];
-  for (const f of faces) p.push(...f[0], ...f[1], ...f[2], ...f[0], ...f[2], ...f[3]);
+  for (const [a, c, d] of tris) p.push(...t[a], ...t[d], ...t[c], ...b[a], ...b[c], ...b[d]);
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length;
+    p.push(...b[i], ...t[i], ...t[j], ...b[i], ...t[j], ...b[j]);
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
   g.computeVertexNormals();
   return g;
 }
-function block(group, mat, x0, x1, z0, z1, bot, top) {
-  const m = new THREE.Mesh(slabGeo(x0, x1, z0, z1, bot, top), mat);
+function prism(group, mat, points, bot, top) {
+  const m = new THREE.Mesh(prismGeo(points, bot, top), mat);
   const solid = !mat.transparent;
   m.castShadow = solid;
   m.receiveShadow = solid;
   group.add(m);
   return m;
+}
+function block(group, mat, x0, x1, z0, z1, bot, top) {
+  return prism(group, mat, [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], bot, top);
 }
 
 // ---------- Labels ----------
@@ -705,6 +761,14 @@ function netArea(rects) {
   }
   return gross - 0.18 * perim; // rects are wall centerlines, less a wall allowance
 }
+function netPolyArea(poly) {
+  const area = Math.abs(poly.reduce((s, [x, z], i) => s + x * poly[(i + 1) % poly.length][1] - poly[(i + 1) % poly.length][0] * z, 0)) / 2;
+  const perimeter = poly.reduce((s, [x, z], i) => s + Math.hypot(poly[(i + 1) % poly.length][0] - x, poly[(i + 1) % poly.length][1] - z), 0);
+  return area - 0.18 * perimeter;
+}
+const roomArea = (r) => (r.rects?.length ? netArea(r.rects) : 0)
+  + (r.polys || []).reduce((s, p) => s + netPolyArea(p), 0)
+  + (r.poly ? netPolyArea(r.poly) : 0);
 
 // ---------- Build the house: one group per scheme, only the chosen one visible ----------
 const built = {};
@@ -714,16 +778,25 @@ for (const S of Object.values(SCH)) {
   const ctx = { group, floorMeshes: [], roomLabels: [], newMeshes: [], roomById: {} };
   for (const [x0, z0, x1, z1] of S.foundation) block(group, M.found, x0, x1, z0, z1, LV.grade - 0.1, LV.main - 0.06);
   for (const r of S.rooms) {
-    r.areaShow = r.area ?? netArea(r.rects);
+    r.areaShow = r.area ?? roomArea(r);
     const lvl = LV[r.lvl];
     r.material = houseMat(PAL[r.mat], { side: THREE.FrontSide, emissive: 0x000000 });
-    for (const [x0, z0, x1, z1, ceilH] of r.rects) {
-      const m = block(group, r.material, x0, x1, z0, z1, lvl - 0.06, lvl);
+    const ceilingPlanes = r.ceilings || [];
+    for (const points of roomPolys(r)) {
+      const m = prism(group, r.material, points, lvl - 0.06, lvl);
       m.castShadow = false;
       m.userData.room = r.id;
       ctx.floorMeshes.push(m);
-      const ceil = ceilH ?? r.ceilH ?? WALL_H; // a rect's 5th number overrides the room's ceiling (the Shell uses it)
-      block(group, M.ceiling, x0, x1, z0, z1, lvl + ceil, lvl + ceil + 0.12);
+      if (!ceilingPlanes.length) {
+        const legacy = (r.rects || []).find((q) => JSON.stringify(rectPoly(q)) === JSON.stringify(points));
+        const ceil = legacy?.[4] ?? r.ceilH ?? WALL_H;
+        prism(group, M.ceiling, points, lvl + ceil, lvl + ceil + 0.12);
+      }
+    }
+    for (const plane of ceilingPlanes) {
+      const points = plane.pts.map(([x, z]) => [x, z]);
+      const top = plane.pts.map(([, , h]) => lvl + h);
+      prism(group, M.ceiling, points, top, top.map((h) => h + (plane.th ?? 0.12)));
     }
     ctx.roomById[r.id] = r;
     if (r.at) ctx.roomLabels.push(makeLabel(r.name, `${r.area ? '' : '≈'}${Math.round(r.areaShow)} ft²`, [r.at[0], lvl + 0.4, r.at[1]], r.isNew ? 'lbl newlbl' : 'lbl'));
@@ -734,7 +807,16 @@ for (const S of Object.values(SCH)) {
     const y0 = f.y0 + (LV[f.lvl ?? 'main'] ?? 0);
     block(group, FXM[f.m] ?? FXM.cab, x0, x1, z0, z1, y0, y0 + f.h);
   }
-  for (const { r: [x0, z0, x1, z1], top, th } of S.roofs) block(group, M.roof, x0, x1, z0, z1, top - th, top);
+  for (const roof of S.roofs) {
+    if (roof.pts) {
+      const points = roof.pts.map(([x, z]) => [x, z]);
+      const top = roof.pts.map(([, , h]) => h);
+      prism(group, M.roof, points, top.map((h) => h - roof.th), top);
+    } else {
+      const [x0, z0, x1, z1] = roof.r;
+      block(group, M.roof, x0, x1, z0, z1, roof.top - roof.th, roof.top);
+    }
+  }
   group.visible = false;
   built[S.id] = ctx;
 }
@@ -765,7 +847,7 @@ if (S.lot) {
   siteGroup.add(lotLine);
 }
 for (const { mat, r: [x0, z0, x1, z1], y0 = LV.grade, y1 = LV.grade + 0.05 } of S.pads || []) {
-  const m = new THREE.Mesh(slabGeo(x0, x1, z0, z1, y0, y1), siteMat(PAL[mat] ?? PAL.conc));
+  const m = new THREE.Mesh(prismGeo([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], y0, y1), siteMat(PAL[mat] ?? PAL.conc));
   m.receiveShadow = true;
   siteGroup.add(m);
 }
@@ -798,19 +880,16 @@ function renderPlan() {
   add(`<rect class="p-bg" x="0" y="0" width="${W}" height="${H}"/>`);
   add(`<text class="p-title" x="${PX(BX.x0 - MARGIN + 1)}" y="${PY(BX.z0 - MARGIN - 1)}">${title}</text>`);
   add(`<text class="p-sub" x="${PX(BX.x0 - MARGIN + 1)}" y="${PY(BX.z0 - MARGIN - 1) + 16}">Plan north up · feet${key}</text>`);
+  const svgPoints = (points) => points.map(([x, z]) => `${PX(x)},${PY(z)}`).join(' ');
   for (const r of S.rooms.filter((x) => onPlan(x.lvl))) {
-    for (const [x0, z0, x1, z1] of r.rects) {
-      add(`<rect class="p-rf f-${r.mat}${selected === r.id ? ' sel' : ''}" data-room="${r.id}" x="${PX(x0)}" y="${PY(z0)}" width="${(x1 - x0) * K}" height="${(z1 - z0) * K}"/>`);
-    }
+    for (const points of roomPolys(r)) add(`<polygon class="p-rf f-${r.mat}${selected === r.id ? ' sel' : ''}" data-room="${r.id}" points="${svgPoints(points)}"/>`);
   }
   for (const f of S.fixtures.filter((x) => onPlan(x.lvl))) {
     const [x0, z0, x1, z1] = f.r;
     add(`<rect class="p-fx" x="${PX(x0)}" y="${PY(z0)}" width="${(x1 - x0) * K}" height="${(z1 - z0) * K}"/>`);
     if (f.t) add(`<text class="p-fxt" x="${PX((x0 + x1) / 2)}" y="${PY((z0 + z1) / 2)}">${f.t}</text>`);
   }
-  const wallRect = (g, sa, sb, cls) => (g.horiz
-    ? `<rect class="${cls}" x="${PX(sa)}" y="${PY(g.n0)}" width="${(sb - sa) * K}" height="${(g.n1 - g.n0) * K}"/>`
-    : `<rect class="${cls}" x="${PX(g.n0)}" y="${PY(sa)}" width="${(g.n1 - g.n0) * K}" height="${(sb - sa) * K}"/>`);
+  const wallRect = (g, sa, sb, cls) => `<polygon class="${cls}" points="${svgPoints([g.point(sa, g.n0), g.point(sb, g.n0), g.point(sb, g.n1), g.point(sa, g.n1)])}"/>`;
   // the other floors' outside walls, dashed, so the plans line up
   for (const w of S.ext.filter((x) => !onPlan(x.lvl))) {
     const g = wallGeom(w);
@@ -843,10 +922,22 @@ function renderPlan() {
     if (cur < g.a1) solid(cur, g.a1);
     for (const o of ops) {
       if (o.fill !== 'glass') continue;
-      const m = (g.n0 + g.n1) / 2;
-      add(g.horiz
-        ? `<line class="p-dm" x1="${PX(o.a)}" y1="${PY(m)}" x2="${PX(o.b)}" y2="${PY(m)}"/>`
-        : `<line class="p-dm" x1="${PX(m)}" y1="${PY(o.a)}" x2="${PX(m)}" y2="${PY(o.b)}"/>`);
+      const a = g.point(o.a, (g.n0 + g.n1) / 2);
+      const b = g.point(o.b, (g.n0 + g.n1) / 2);
+      add(`<line class="p-dm" x1="${PX(a[0])}" y1="${PY(a[1])}" x2="${PX(b[0])}" y2="${PY(b[1])}"/>`);
+    }
+    for (const o of ops) {
+      if (o.fill !== 'door' || !o.swing) continue;
+      const hingeA = o.hinge === 'b' ? o.b : o.a;
+      const latchA = o.hinge === 'b' ? o.a : o.b;
+      const width = Math.abs(o.b - o.a);
+      const hinge = g.point(hingeA);
+      const closed = g.point(latchA);
+      const opened = g.point(hingeA, Math.sign(o.swing) * width);
+      const cross = (closed[0] - hinge[0]) * (opened[1] - hinge[1]) - (closed[1] - hinge[1]) * (opened[0] - hinge[0]);
+      const cls = `p-door${o.isNew && showNew ? ' new' : ''}`;
+      add(`<line class="${cls}" x1="${PX(hinge[0])}" y1="${PY(hinge[1])}" x2="${PX(opened[0])}" y2="${PY(opened[1])}"/>`);
+      add(`<path class="${cls}" d="M ${PX(closed[0])} ${PY(closed[1])} A ${width * K} ${width * K} 0 0 ${cross > 0 ? 1 : 0} ${PX(opened[0])} ${PY(opened[1])}"/>`);
     }
   }
   for (const r of S.rooms.filter((x) => onPlan(x.lvl))) {
@@ -889,7 +980,7 @@ plan2d.addEventListener('click', (e) => {
 });
 
 // ======================= UI STATE =======================
-const H_TOP = Math.max(WALL_H, ...Object.values(SCH).flatMap((s) => s.roofs.map((r) => r.top))) + 3;
+const H_TOP = Math.max(WALL_H, ...Object.values(SCH).flatMap((s) => s.roofs.flatMap((r) => r.pts ? r.pts.map((p) => p[2]) : [r.top]))) + 3;
 const VIEWS = {
   aerial: { pos: [CX + SPAN * 1.1, SPAN * 1.0, CZ + SPAN * 1.5], target: [CX, 1, CZ], cut: H_TOP },
   front: { pos: [CX, 6, CZ + SPAN * 2.2], target: [CX, 5, CZ], cut: H_TOP },

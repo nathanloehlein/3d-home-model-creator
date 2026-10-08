@@ -10,8 +10,8 @@ A 3D model and floor plan of a house, built from one block of data in one HTML f
 ## Features
 
 - **One file, nothing to install.** `model.html` holds the data and the renderer. three.js loads from a CDN. The tooling is plain Node with no dependencies.
-- **3D model**: orbit, camera presets and a cut-height slider for seeing inside. Click a room to see its size, level and ceiling.
-- **Floor plan**: rooms, fixtures, windows, overall dimensions, north arrows and a scale bar, with one plan per floor.
+- **3D model**: orbit, camera presets and a cut-height slider for seeing inside. Click a room to see its size, level and ceiling. Gable, hip and shed roof planes and sloped ceilings use the same property data.
+- **Floor plan**: rectangular or polygon rooms, diagonal walls, door swings, fixtures, windows, overall dimensions, north arrows and a scale bar, with one plan per floor.
 - **Remodel schemes**: list only what changes, and the page compares it with the house as it stands.
   - New walls and filled-in openings are blue.
   - Walls taken out are dashed.
@@ -115,12 +115,12 @@ Everything is in plan feet with plan north up. Pick any corner of the house as 0
 
 ### Exterior walls (`ext`)
 
-Each wall is `{ x0, z0, x1, z1, out, open }`, drawn along the wall's outside face.
+Each wall is `{ x0, z0, x1, z1, out, open }`, drawn from its first endpoint to its second endpoint along the outside face. Endpoints can run in any direction.
 
-- A wall is horizontal when `z0 === z1`.
-- `out` is the side that faces outside: −1 means toward −x or −z, 1 means toward +x or +z. The wall's thickness is built inward from its line.
+- For axis-aligned walls, `out` keeps its original convention: −1 means toward −x or −z, and 1 means toward +x or +z.
+- For diagonal walls, `out: 1` is the right side when walking from `(x0, z0)` to `(x1, z1)`; `out: -1` is the left. Exterior wall thickness is built on the opposite side.
 - `t` sets the thickness. The default is 0.5 ft for exterior walls and 0.35 ft for interior walls.
-- `top` sets the wall's height (default `WALL_H`). It can be a function of x, for a sloped wall top.
+- `top` sets the wall's height (default `WALL_H`). It can be `(x, z) => height` for a sloped or gable wall top.
 
 ### Interior walls (`parts`)
 
@@ -132,14 +132,16 @@ These take the same fields as exterior walls, without `out`. They're drawn on th
 
 ### Openings (`open`)
 
-Openings are measured along the wall, from `a` to `b`, in the same plan feet:
+Openings run from `a` to `b`. On axis-aligned walls these remain the global x or z coordinates used by earlier versions. On diagonal walls they are distances in feet from the wall's first endpoint.
 
 | Helper | What it draws |
 |---|---|
 | `WIN(a, b, sill, head)` | A window |
-| `DOOR(a, b)` | A solid door |
+| `DOOR(a, b, head?, options?)` | A solid door with an optional plan swing |
 | `OPEN(a, b)` | A gap with a header above it |
 | `GDOOR(a, b)` | A garage door, 7′ high |
+
+Door options are `{ hinge: 'a' | 'b', swing: 1 | -1 | 0 }`. The default is `{ hinge: 'a', swing: 1 }`; use `swing: -1` for the opposite side or `swing: 0` to hide the swing. If the default 6.8′ head is fine, pass options as the third argument: `DOOR(2, 5, { hinge: 'b', swing: -1 })`.
 
 ### Levels and floor plans
 
@@ -152,17 +154,19 @@ Openings are measured along the wall, from `a` to `b`, in the same plan feet:
 
 ### Rooms (`rooms`)
 
-Each room is `{ id, name, lvl, mat, rects: [[x0, z0, x1, z1], …], at: [x, z] }`.
+Each room is `{ id, name, lvl, mat, rects: [[x0, z0, x1, z1], …], at: [x, z] }`. For non-rectangular floors, use `poly: [[x, z], …]` or `polys: [[[x, z], …], …]` instead of `rects`.
 
-- `rects` are wall centerlines. The page subtracts a wall allowance to get the floor area. Give `area` instead if you have a measured figure.
+- `rects` are wall centerlines. The page subtracts a wall allowance to get the floor area. Polygon area uses the supplied outline. Give `area` instead if you have a measured figure.
 - `mat` picks the floor colour: woodMain, carpet, tile, wet, closet, mech or conc.
 - `at` places the label. A room without one, such as a closet, gets no label and stays out of the room list.
 - `ceilH` (a height) or `ceil` (a description) describes the ceiling. `sub` and `note` add lines to the selected-room panel.
+- `ceilings: [PLANE([[x, z, height], …], thickness)]` draws one or more sloped ceiling planes. Heights are relative to that room's level.
 
 ### Everything else
 
 - `fixtures` are made with `fx(label, [x0, z0, x1, z1], height, material, base, extra)`. Put `{ fixed: true }` in `extra` for things that stay put in any remodel (furnace, panel, meters); the Shell keeps only those.
 - `foundation`, `roofs` and the `site` (ground, lot polygon, paving pads, labels) are optional.
+- A roof may use the legacy flat form `{ r: [x0, z0, x1, z1], top, th }` or a plane: `PLANE([[x, z, absoluteHeight], …], thickness)`. Combine planes for gable or hip roofs; one tilted plane makes a shed roof.
 - `facts` and `notes` fill the sidebar.
 - `lights` are the Home Assistant light positions: `[name, x, z, height]`.
 
@@ -193,7 +197,7 @@ const SCHEMES = {
   - Blue: wall where there was none, and old openings that are now filled in. In the plan, a window that wasn't there before gets a blue outline.
   - Dashed: wall stretches the scheme takes out. Rust dashes mean the wall was bearing.
   - Two walls are the same wall when they run the same way on the same level and their thicknesses overlap. So an old outside wall kept as an inside wall in an addition can move into `parts` and still match. Plan B in the example does this.
-  - `isNew: true` on a wall or opening forces it to count as new. A room counts as new when its `id` is new or its `rects` changed; `isNew` on a room overrides that.
+  - `isNew: true` on a wall or opening forces it to count as new. A room counts as new when its `id`, footprint or ceiling planes changed; `isNew` on a room overrides that.
 - **Shell.** `shell: true` starts from the house with every inside wall gone. It keeps only `fixed` fixtures, and has one room per level that keeps each old room's ceiling height.
 - **Additions.** Change `ext`, and add the new footprint to `foundation` and `roofs`. The 2D frame fits every scheme, so plans line up when you switch.
 - **`existing` is a reserved id.**
@@ -243,11 +247,11 @@ ha/_view.html            standalone check that ha/house.glb loads
 reference/               for your measurements, survey and photos
 ```
 
-## Limitations
+## Geometry notes
 
-- Walls must be axis-aligned; diagonal walls aren't supported yet.
-- Roofs are flat slabs. Hip and gable roofs and sloped ceilings aren't built in, though a wall's `top` can follow a slope.
-- Doors are drawn as gaps in the floor plan, without swings.
+- Floor polygons should be simple outlines without holes. Use `polys` to split disconnected or complex floor areas into simpler pieces.
+- Roof and ceiling surfaces are planar. Curved roofs require several approximating planes.
+- The GLB exporter triangulates polygon faces as a fan, so split concave room footprints into convex polygons with `polys` for reliable Home Assistant output.
 
 ## License
 

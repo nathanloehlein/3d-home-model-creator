@@ -3,6 +3,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 ENV PORT=8080
+ENV PREVIEW_HOST=0.0.0.0
 
 COPY --chown=node:node package.json model.html ./
 COPY --chown=node:node tools/build.mjs tools/serve.mjs tools/

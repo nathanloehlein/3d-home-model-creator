@@ -43,7 +43,7 @@ docker build -t 3d-home-model .
 docker run --rm -p 8767:8080 -v "$PWD:/app:ro" 3d-home-model
 ```
 
-Open http://localhost:8767/. The same commands work with `podman` in place of `docker`. To expose it on another port, change the first number in `-p 8767:8080`.
+Open http://localhost:8767/. To expose it on another port, change the first number in `-p 8767:8080`.
 
 ### Start with an AI coding agent
 

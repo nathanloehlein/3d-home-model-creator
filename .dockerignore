@@ -1,0 +1,9 @@
+**
+!Dockerfile
+!.dockerignore
+!package.json
+!model.html
+!tools/
+!tools/build.mjs
+!assets/
+!assets/**

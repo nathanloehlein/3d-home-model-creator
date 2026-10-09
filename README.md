@@ -40,10 +40,10 @@ Build the image, then mount the project read-only so edits to `model.html` appea
 
 ```bash
 docker build -t 3d-home-model .
-docker run --rm -p 8767:8080 -v "$PWD:/app:ro" 3d-home-model
+docker run --rm -p 127.0.0.1:8767:8080 -v "$PWD:/app:ro" 3d-home-model
 ```
 
-Open http://localhost:8767/. To expose it on another port, change the first number in `-p 8767:8080`.
+Open http://localhost:8767/. To expose it on another port, change `8767` in `-p 127.0.0.1:8767:8080`.
 
 Run the tests and production build in the same image with a writable mount:
 

@@ -45,6 +45,12 @@ docker run --rm -p 8767:8080 -v "$PWD:/app:ro" 3d-home-model
 
 Open http://localhost:8767/. To expose it on another port, change the first number in `-p 8767:8080`.
 
+Run the tests and production build in the same image with a writable mount:
+
+```bash
+docker run --rm -v "$PWD:/app" 3d-home-model sh -c "npm test && npm run build"
+```
+
 | Command | What it does |
 |---|---|
 | `npm start` | Preview server at http://localhost:8767/. It rebuilds the page on every request. |

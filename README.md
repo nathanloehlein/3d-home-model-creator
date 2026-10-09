@@ -34,6 +34,17 @@ npm start
 
 Open http://localhost:8767/, then edit the DATA block in `model.html` and reload.
 
+### Docker
+
+Build and run the static site in a non-root Nginx container:
+
+```bash
+docker build -t 3d-home-model .
+docker run --rm -p 8767:8080 3d-home-model
+```
+
+Open http://localhost:8767/. To expose it on another port, change the first number in `-p 8767:8080`.
+
 ### Start with an AI coding agent
 
 Open the cloned folder in your preferred AI coding tool, attach whatever property material you have, and use a prompt like this:
@@ -244,14 +255,6 @@ A single click on a disc toggles its entity, and a drag orbits. Lights render wi
 ## Publishing
 
 - **GitHub Pages.** `.github/workflows/pages.yml` tests, builds and deploys the page on every push to `main`. Turn it on under *Settings → Pages → Source: GitHub Actions*. Remember that the published page shows your house's layout.
-- **Docker.** Build and run the static site in a non-root Nginx container:
-
-  ```bash
-  docker build -t 3d-home-model .
-  docker run --rm -p 8767:8080 3d-home-model
-  ```
-
-  Open http://localhost:8767/. To expose it on another port, change the first number in `-p 8767:8080`.
 - **Claude Artifacts.** `model.html` is a body fragment, with no `<html>` or `<head>`, so it can be published as a [Claude](https://claude.ai) Artifact as it is. `npm run build` adds the document skeleton for everywhere else.
 
 ## Working with Claude Code

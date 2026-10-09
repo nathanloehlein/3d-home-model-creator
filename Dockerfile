@@ -1,18 +1,18 @@
-FROM node:22-alpine AS build
+FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package.json model.html ./
-COPY tools/build.mjs tools/build.mjs
-COPY assets assets
+ENV PORT=8080
 
-RUN npm run build
+COPY --chown=node:node package.json model.html ./
+COPY --chown=node:node tools/build.mjs tools/serve.mjs tools/
+COPY --chown=node:node assets assets
 
-FROM nginxinc/nginx-unprivileged:1.29-alpine
-
-COPY --from=build --chown=101:101 /app/_site/ /usr/share/nginx/html/
+USER node
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1
+
+CMD ["npm", "start"]

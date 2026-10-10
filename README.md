@@ -34,6 +34,23 @@ npm start
 
 Open http://localhost:8767/, then edit the DATA block in `model.html` and reload.
 
+### Docker
+
+Build the image, then mount the project read-only so edits to `model.html` appear when you refresh:
+
+```bash
+docker build -t 3d-home-model .
+docker run --rm -p 127.0.0.1:8767:8080 -v "$PWD:/app:ro" 3d-home-model
+```
+
+Open http://localhost:8767/. To expose it on another port, change `8767` in `-p 127.0.0.1:8767:8080`.
+
+Run the tests and production build in the same image with a writable mount:
+
+```bash
+docker run --rm -v "$PWD:/app" 3d-home-model sh -c "npm test && npm run build"
+```
+
 ### Start with an AI coding agent
 
 Open the cloned folder in your preferred AI coding tool, attach whatever property material you have, and use a prompt like this:

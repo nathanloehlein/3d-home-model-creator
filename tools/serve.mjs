@@ -2,6 +2,7 @@
 //
 //   node tools/serve.mjs            http://localhost:8767/
 //   PORT=9000 node tools/serve.mjs
+//   PREVIEW_HOST=0.0.0.0 node tools/serve.mjs
 //
 // / is model.html wrapped as a full page, rebuilt on every request, so an edit shows on reload.
 // Everything else is served from the project folder, e.g. /ha/_view.html to check the exported GLB.
@@ -11,6 +12,7 @@ import path from 'node:path';
 import { ROOT, page } from './build.mjs';
 
 const PORT = Number(process.env.PORT) || 8767;
+const HOST = process.env.PREVIEW_HOST || '127.0.0.1';
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -33,4 +35,4 @@ http.createServer((req, res) => {
   }
   res.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store' });
   fs.createReadStream(file).pipe(res);
-}).listen(PORT, () => console.log(`http://localhost:${PORT}/`));
+}).listen(PORT, HOST, () => console.log(`http://${HOST}:${PORT}/`));

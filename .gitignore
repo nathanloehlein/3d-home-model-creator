@@ -2,6 +2,7 @@
 _site/
 _preview.html
 ha/*.glb
+assets/furniture/kenney/models.json
 
 # Home Assistant credentials (HA_URL / HA_TOKEN)
 .env

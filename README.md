@@ -12,7 +12,7 @@ A 3D model and floor plan of a house, built from one block of data in one HTML f
 - **One file, nothing to install.** `model.html` holds the data and the renderer. three.js loads from a CDN. The tooling is plain Node with no dependencies.
 - **3D model**: orbit, camera presets and a cut-height slider for seeing inside. Click a room to see its size, level and ceiling. Gable, hip and shed roof planes and sloped ceilings use the same property data.
 - **Floor plan**: rectangular or polygon rooms, diagonal walls, door swings, furniture symbols, interactive measurements, fixtures, windows, overall dimensions, north arrows and a scale bar, with one plan per floor.
-- **Furniture catalog**: beds, sofas, tables, desks, storage, kitchen and bathroom pieces with size and rotation controls. Bundled CC0 models add recognizable 3D shapes while procedural geometry remains a fast fallback.
+- **Furniture catalog**: beds, sofas, tables, desks, storage, cabinets, kitchen and bathroom pieces. Sizes are in inches. You can move, resize, rotate, add and delete pieces on the page, with undo, and your changes are remembered. Bundled CC0 models add recognizable 3D shapes while procedural geometry remains a fast fallback.
 - **Remodel schemes**: list only what changes, and the page compares it with the house as it stands.
   - New walls and filled-in openings are blue.
   - Walls taken out are dashed.
@@ -20,6 +20,7 @@ A 3D model and floor plan of a house, built from one block of data in one HTML f
   - A built-in Shell option shows the house with every inside wall gone.
 - **Room areas** are estimated from the wall lines, or you enter a measured figure.
 - **Home Assistant**: a GLB with named objects for floor3d-card, and a script that pushes the dashboard.
+- **Keyboard navigation** in 3D (WASD, Q/E, R/F), and the page **remembers** your scheme, camera, cut height and layers.
 - Light and dark themes; works on a phone.
 
 ## Quick start
@@ -56,6 +57,7 @@ docker run --rm -v "$PWD:/app" 3d-home-model sh -c "npm test && npm run build"
 | `npm start` | Preview server at http://localhost:8767/. It rebuilds the page on every request. |
 | `npm run build` | Writes `_site/index.html`, a standalone page. |
 | `npm run glb` | Writes `ha/house.glb` for Home Assistant. |
+| `npm run pack` | Writes `assets/furniture/kenney/models.json`, for publishing as a Claude Artifact. |
 | `npm test` | Tests the scheme diff. |
 
 The URL hash opens a scheme and a view directly, e.g. `#plan-a` or `#plan-b/plan`.
@@ -137,19 +139,48 @@ Each room is `{ id, name, lvl, mat, rects: [[x0, z0, x1, z1], …], at: [x, z] }
 
 ### Furniture
 
-Use `FURNITURE(type, options)` for common movable items. Every item needs `at: [x, z]`; give it a stable `id` when remodel schemes may move or remove it.
+Use `FURNITURE(type, options)` for common movable items. Every item needs `at: [x, z]` in feet; give it a stable `id` when remodel schemes may move or remove it. **Sizes are in inches**: `widthIn`, `depthIn`, `heightIn`, and `raiseIn` for height off the floor (the old `width`, `depth`, `height` and `y0` in feet still work).
 
 ```js
 FURNITURE('queen-bed', { id: 'primary-bed', at: [32, 7], rotate: 90 }),
-FURNITURE('sofa', { id: 'living-sofa', at: [10, 11], width: 8, rotate: 180 }),
-FURNITURE('dining-table', { id: 'dining-table', at: [18, 8], width: 7, depth: 3.5 }),
+FURNITURE('sofa', { id: 'living-sofa', at: [10, 11], widthIn: 96, rotate: 180 }),
+FURNITURE('dining-table', { id: 'dining-table', at: [18, 8], widthIn: 84, depthIn: 42 }),
+FURNITURE('cabinet', { id: 'wall-cabinet', at: [12, 1], widthIn: 47.25, depthIn: 15.5, heightIn: 25.5, raiseIn: 54 }),
 ```
 
-Built-in types are `twin-bed`, `queen-bed`, `king-bed`, `sofa`, `loveseat`, `dining-table`, `desk`, `dresser`, `wardrobe`, `refrigerator`, `range`, `toilet`, `vanity` and `tub`. Override `width`, `depth`, `height`, `rotate`, `label` or `mat` per item. Rotation is clockwise in plan degrees.
+Built-in types are `twin-bed`, `queen-bed`, `king-bed`, `sofa`, `loveseat`, `dining-table`, `desk`, `dresser`, `wardrobe`, `refrigerator`, `range`, `toilet`, `vanity`, `tub` and `cabinet` (a plain dark-brown box with no stock model). Override `width`, `depth`, `height`, `rotate`, `label` or `mat` per item. Rotation is clockwise in plan degrees.
 
 The bundled low-poly GLBs are selected from the [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit), licensed CC0. Their source and license are recorded in `assets/furniture/kenney/`. If an asset cannot load, the page automatically keeps its procedural model.
 
 In **Floor plan**, select **Measure**, then click two points. Measurements snap to 3″ and remain visible while you compare schemes; **Clear** removes them. Press Escape to cancel the current line or leave measurement mode.
+
+### Editing furniture on the page
+
+Tick **Furniture → Edit furniture** in the sidebar. It works in every scheme, in both the floor plan and the 3D view.
+
+- **Move:** drag a piece. It snaps to 0.25′; hold Alt for fine movement. In 3D the camera stays still while a piece is dragged.
+- **Rotate:** drag the ● handle behind the piece (snaps to 15°), or use the Rotate field or the Rotate 90° button.
+- **Resize:** drag the ■ corner handle (the opposite corner stays put; it snaps to whole inches, quarter inches with Alt), or type Width, Depth and Height. All sizes are in inches. X and Z stay in feet.
+- **Raise or lower:** the Raise (in) field lifts a piece off the floor, for wall cabinets or stacking; PageUp and PageDown do it 3 in at a time (Shift for 12 in). Pieces that don't share any height don't count as overlapping.
+- **Back to wall** turns the piece's back to the nearest wall and slides it flush. **Add** puts a new piece in the selected room, or near the middle of the plan. Duplicate and Delete are in the piece's buttons.
+- **Keys:** arrows nudge (Shift for 1′), `[` and `]` rotate, PageUp/PageDown raises and lowers, Delete removes, Ctrl+Z and Ctrl+Y undo and redo, Esc deselects.
+- A red note under the form warns when a piece overlaps another piece or a wall.
+- **Saving:** each scheme's layout is saved in this browser (localStorage, `hmc-furniture-v1`) as it changes. **Reset plan** goes back to the layout in the file.
+- **Making it permanent:** **Show as code** lists the scheme's pieces as `FURNITURE(...)` lines (sizes in inches) and tries to copy them. Paste them into the data, then Reset plan to drop the saved copy. Until then a saved layout hides edits made to the file for that scheme.
+
+Only catalog furniture is editable. Boxes made with `fx()` stay as they are in the data.
+
+### Doors layer
+
+**Doors and swings** in the Layers section shows or hides the swing arcs in the floor plan and the door slabs in 3D. Doors themselves are data: see `DOOR()` above.
+
+### Keyboard navigation
+
+In the 3D view: **W/S** move forward and back, **A/D** slide left and right, **Q/E** turn the view around the point you're looking at, and **R/F** zoom in and out. Hold Shift for triple speed. Movement follows the camera's heading along the ground. A key press takes over from a camera preset that is still moving. The keys are ignored while you type in a field and don't work in the floor plan.
+
+### Remembered settings
+
+The page remembers its settings in localStorage (`hmc-ui-v1`): the scheme, 3D or floor plan, camera position, which view button is lit, cut height, every layer checkbox and whether furniture editing is on. A `#scheme` link still opens that scheme whatever was saved. To forget everything, clear the site's data.
 
 ## Remodel schemes
 
@@ -209,6 +240,7 @@ A single click on a disc toggles its entity, and a drag orbits. Lights render wi
 
 - **GitHub Pages.** `.github/workflows/pages.yml` tests, builds and deploys the page on every push to `main`. Turn it on under *Settings → Pages → Source: GitHub Actions*. Remember that the published page shows your house's layout.
 - **Claude Artifacts.** `model.html` is a body fragment, with no `<html>` or `<head>`, so it can be published as a [Claude](https://claude.ai) Artifact as it is. `npm run build` adds the document skeleton for everywhere else.
+  - Artifacts don't serve `.glb` files. Run `npm run pack` to make `assets/furniture/kenney/models.json` (all the furniture models as base64) and publish that file, plus the folder's `LICENSE.txt`, with the page. The page tries each `.glb` first and falls back to `models.json`. Without it the artifact shows plain box furniture.
 
 ## Working with Claude Code
 
@@ -221,7 +253,8 @@ model.html               the page: data (DATA block), wall builder (WALLS), sche
 tools/serve.mjs          preview server
 tools/build.mjs          model.html -> _site/index.html
 tools/ha_floor3d.mjs     model.html -> ha/house.glb
-tools/scheme.test.mjs    tests for the scheme diff
+tools/scheme.test.mjs    tests for the scheme diff and furniture sizes
+tools/pack_furniture.mjs furniture models -> models.json, for publishing as an artifact
 tools/ha_push_dashboard.py  pushes ha/dashboard.yaml to Home Assistant
 ha/dashboard.yaml        floor3d-card dashboard with placeholder entities
 ha/_view.html            standalone check that ha/house.glb loads

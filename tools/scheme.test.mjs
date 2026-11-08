@@ -195,3 +195,17 @@ test('a scheme inherits every list it does not name', () => {
   assert.deepEqual(S.scope, []);
   assert.deepEqual(S.checks, []);
 });
+
+test('furniture sizes can be given in inches or feet', () => {
+  const inInches = K.FURNITURE('desk', { at: [10, 5], widthIn: 48, depthIn: 24, heightIn: 30, raiseIn: 6 });
+  assert.equal(inInches.width, 4);
+  assert.equal(inInches.depth, 2);
+  assert.equal(inInches.height, 2.5);
+  assert.equal(inInches.y0, 0.5);
+  assert.deepEqual(inInches.r, [8, 4, 12, 6]);
+  const inFeet = K.FURNITURE('desk', { at: [10, 5], width: 4, depth: 2 });
+  assert.deepEqual(inFeet.r, inInches.r);
+  assert.equal(K.FURNITURE('desk', { at: [0, 0] }).width, 4.5, 'catalog size when nothing is given');
+  assert.equal(K.FURNITURE('cabinet', { at: [0, 0], widthIn: 23.5, heightIn: 74.5 }).depth, 15.5 / 12);
+  assert.equal(inInches.widthIn, undefined, 'inch options are not left on the piece');
+});

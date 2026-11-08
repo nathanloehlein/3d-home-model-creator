@@ -9,7 +9,7 @@ A 3D model and floor plan of one property, with remodel schemes and a Home Assis
 - Plan feet, plan north up. x = plan east, z = plan south, y = feet above the main floor.
 - Walls may be diagonal. Axis-aligned opening `a`/`b` values are global x or z coordinates; diagonal opening values are distances from the wall's first endpoint. For diagonal exterior walls, `out: 1` is right while walking from the first endpoint to the second.
 - Use `poly` or `polys` for non-rectangular room floors. Use `PLANE([[x, z, height], ...], thickness)` for roof and ceiling planes; roof heights are absolute, while room ceiling heights are relative to the room level.
-- Use `FURNITURE(type, options)` for movable catalog items and keep `fx()` for custom boxes or fixed equipment. Preserve the bundled Kenney asset names and CC0 license files when editing the catalog.
+- Use `FURNITURE(type, options)` for movable catalog items and keep `fx()` for custom boxes or fixed equipment. Furniture sizes are in inches (`widthIn`, `depthIn`, `heightIn`, `raiseIn`); X and Z positions stay in feet. Preserve the bundled Kenney asset names and CC0 license files when editing the catalog.
 - Measured figures beat drawn ones. When an area is measured, put it in the room's `area` so the page stops estimating. Note in a comment where each number came from, and keep the sources in `reference/`.
 - Remodel schemes:
   - Never hand-tag new or removed walls; the SCHEME block diffs each scheme against `PROPERTY`.
@@ -18,6 +18,12 @@ A 3D model and floor plan of one property, with remodel schemes and a Home Assis
 - Agree a remodel idea in words before drawing it. Put open questions in the scheme's `checks` so they stay with the drawing.
 - Everything outside the DATA block is the renderer, the same in every copy of this project. A renderer fix can be ported between copies by swapping the code around that block.
 - In the upstream template, `PROPERTY` and `SCHEMES` stay example data. The tests check the example schemes while they're present and skip those checks once the data is a real house.
+
+## The page itself
+
+- The page has an in-browser furniture editor, keyboard navigation in 3D (WASD, Q/E, R/F) and remembered settings (`hmc-ui-v1`, `hmc-furniture-v1` in localStorage). A saved furniture layout hides edits made in the file, so tell the user to Reset plan after pasting Show-as-code output into the data.
+- Furniture editor code and the nav and settings code sit after the renderer's plan code, outside the DATA block. Keep them out of the DATA, WALLS and SCHEME blocks, which the Node tools evaluate.
+- Doors are `DOOR(a, b, { hinge, swing })` data; the Doors layer only toggles their swing arcs and slabs.
 
 ## Previewing
 

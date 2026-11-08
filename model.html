@@ -141,6 +141,27 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .p-ghost { fill: none; stroke: var(--ink-2); stroke-width: 0.8; stroke-dasharray: 4 3; opacity: 0.6; }
 .p-fx { fill: none; stroke: var(--ink-2); stroke-width: 0.8; }
 .p-fx.new { stroke: var(--new); stroke-width: 1.2; }
+.plan2d .furn { pointer-events: none; }
+.plan2d.editing .furn { pointer-events: all; cursor: move; }
+.plan2d.editing .furn .p-fx { fill: transparent; }
+.furn.sel .p-fx { stroke: var(--accent); stroke-width: 1.8; }
+.furn.sel .p-fx-detail { stroke: var(--accent); }
+.fh { pointer-events: all; }
+.fh line { stroke: var(--accent); stroke-width: 1; }
+.fh circle, .fh rect { fill: var(--panel); stroke: var(--accent); stroke-width: 1.6; }
+.fh circle { cursor: grab; } .fh rect { cursor: nwse-resize; }
+.furn-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.furn-form label { display: grid; gap: 3px; font-size: 11.5px; color: var(--ink-2); }
+.furn-form label.wide { grid-column: 1 / -1; }
+.furn-form input, .furn-form select, .furn-add select {
+  font: 500 13px var(--font-ui); padding: 6px 7px; border: 1px solid var(--rule); background: var(--panel);
+  color: var(--ink); border-radius: 3px; width: 100%; min-width: 0; font-variant-numeric: tabular-nums;
+}
+.furn-add { display: flex; gap: 6px; }
+.furn-add select { flex: 1 1 auto; width: auto; }
+.furn-help { margin: 0; font-size: 12px; color: var(--ink-2); }
+.furn-warn { margin: 0; font-size: 12px; color: var(--accent); }
+#furn-text { width: 100%; height: 110px; font: 400 11px/1.4 var(--font-mono); background: var(--panel); color: var(--ink); border: 1px solid var(--rule); border-radius: 3px; }
 .p-fx-detail { fill: none; stroke: var(--ink-2); stroke-width: 0.55; pointer-events: none; }
 .p-fxt { font: 500 7.5px var(--font-mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
 .p-measure { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 3 2; pointer-events: none; }
@@ -203,9 +224,47 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
       <div class="toggles">
         <label class="tog" id="tog-new" hidden><input type="checkbox" id="t-new" checked> New walls and windows <span class="key new" aria-hidden="true"></span></label>
         <label class="tog" id="tog-bear" hidden><input type="checkbox" id="t-bear" checked> Bearing walls <span class="key" aria-hidden="true"></span></label>
+        <label class="tog"><input type="checkbox" id="t-doors" checked> Doors and swings</label>
         <label class="tog"><input type="checkbox" id="t-labels" checked> Room labels</label>
         <label class="tog"><input type="checkbox" id="t-site" checked> Site, paving and lot line</label>
         <label class="tog"><input type="checkbox" id="t-lights"> Light positions (Home Assistant)</label>
+      </div>
+    </section>
+
+    <section id="furn-sec">
+      <h2>Furniture</h2>
+      <label class="tog"><input type="checkbox" id="t-edit"> Edit furniture</label>
+      <div id="furn-tools" hidden style="display: grid; gap: 10px;">
+        <p class="furn-help" id="furn-help"></p>
+        <div class="furn-add"><select id="f-kind" aria-label="Piece to add"></select><button type="button" id="f-add">Add</button></div>
+        <p class="furn-help" id="furn-none">Click a piece to move, resize or rotate it.</p>
+        <div id="furn-form" hidden style="display: grid; gap: 10px;">
+          <div class="furn-form">
+            <label class="wide">Type<select id="ff-kind"></select></label>
+            <label>X (ft)<input type="number" id="ff-x" step="0.25"></label>
+            <label>Z (ft)<input type="number" id="ff-z" step="0.25"></label>
+            <label>Width (in)<input type="number" id="ff-w" step="0.25" min="6"></label>
+            <label>Depth (in)<input type="number" id="ff-d" step="0.25" min="6"></label>
+            <label>Height (in)<input type="number" id="ff-h" step="0.25" min="1"></label>
+            <label>Rotate (°)<input type="number" id="ff-r" step="15"></label>
+            <label>Raise (in)<input type="number" id="ff-y" step="0.25" min="0"></label>
+            <label>Floor<select id="ff-lvl"></select></label>
+          </div>
+          <div class="seg">
+            <button type="button" id="fb-rot">Rotate 90°</button>
+            <button type="button" id="fb-wall">Back to wall</button>
+            <button type="button" id="fb-dup">Duplicate</button>
+            <button type="button" id="fb-del">Delete</button>
+          </div>
+          <p class="furn-warn" id="furn-warn" hidden></p>
+        </div>
+        <div class="seg">
+          <button type="button" id="fb-undo">Undo</button>
+          <button type="button" id="fb-redo">Redo</button>
+          <button type="button" id="fb-code">Show as code</button>
+          <button type="button" id="fb-reset">Reset plan</button>
+        </div>
+        <textarea id="furn-text" readonly hidden aria-label="Furniture as code"></textarea>
       </div>
     </section>
 
@@ -303,15 +362,24 @@ const FURNITURE_TYPES = {
   toilet: { label: 'WC', width: 1.7, depth: 2.4, height: 1.3, mat: 'appl', symbol: 'toilet', asset: 'toilet.glb' },
   vanity: { label: 'Vanity', width: 4, depth: 2, height: 2.8, mat: 'cab', symbol: 'storage', asset: 'bathroomCabinet.glb' },
   tub: { label: 'Tub', width: 5, depth: 2.7, height: 1.8, mat: 'appl', symbol: 'tub', asset: 'bathtub.glb' },
+  // no stock model: a plain dark-brown box, sized with widthIn, depthIn and heightIn
+  cabinet: { label: 'Cabinet', width: 47.25 / 12, depth: 15.5 / 12, height: 25.5 / 12, mat: 'darkwood', symbol: 'storage' },
 };
 const rotatePoint = ([x, z], deg) => {
   const a = deg * Math.PI / 180;
   return [x * Math.cos(a) - z * Math.sin(a), x * Math.sin(a) + z * Math.cos(a)];
 };
+// FURNITURE(kind, { at: [x, z] in feet, rotate, widthIn, depthIn, heightIn, raiseIn in inches, lvl }). Raise is above the level's floor.
+// (width, depth, height and y0 in feet also work.)
 const FURNITURE = (kind, options) => {
   const preset = FURNITURE_TYPES[kind];
   if (!preset) throw new Error(`Unknown furniture type: ${kind}`);
-  const value = { ...preset, ...options, kind };
+  const given = { ...options };
+  for (const [inch, ft] of [['widthIn', 'width'], ['depthIn', 'depth'], ['heightIn', 'height'], ['raiseIn', 'y0']]) {
+    if (given[inch] != null) given[ft] = given[inch] / 12;
+    delete given[inch];
+  }
+  const value = { ...preset, ...given, kind };
   const [x, z] = value.at;
   value.t = value.label;
   value.m = value.mat;
@@ -526,7 +594,7 @@ function wallGeom(w) {
   return { horiz, vert, diag, a0, a1, t, yb, n0, n1, ops, ux, uz, nx, nz, point, along };
 }
 // newMeshes (optional) collects [mesh, usual material] for each stretch of new work, so the page can recolour it.
-function buildWall(w, group, newMeshes) {
+function buildWall(w, group, newMeshes, doorMeshes) {
   const g = wallGeom(w);
   const top = typeof w.top === 'function' ? w.top : () => (w.top ?? g.yb + WALL_H);
   const inner = w.bearing ? M.bearing : M.wall;
@@ -577,7 +645,7 @@ function buildWall(w, group, newMeshes) {
   const mid = (core[0] + core[1]) / 2;
   for (const o of g.ops) {
     if (o.fill === 'glass') put(M.glass, mid - 0.03, mid + 0.03, o.a, o.b, o.sill, o.head);
-    if (o.fill === 'door') put(M.door, mid - 0.08, mid + 0.08, o.a + 0.05, o.b - 0.05, o.sill, o.head);
+    if (o.fill === 'door') doorMeshes?.push(put(M.door, mid - 0.08, mid + 0.08, o.a + 0.05, o.b - 0.05, o.sill, o.head));
     if (o.fill === 'gdoor') put(M.gdoor, mid - 0.08, mid + 0.08, o.a + 0.05, o.b - 0.05, o.sill, o.head);
   }
 }
@@ -765,10 +833,24 @@ const M = {
 };
 const FXM = {};
 for (const k of ['cab', 'counter', 'stone', 'steel', 'dark', 'appl', 'wood', 'fabric', 'bed']) FXM[k] = houseMat(PAL[k]);
+FXM.darkwood = houseMat(0x3a2a22);
 const furnitureLoader = new GLTFLoader();
 const furnitureAssets = new Map();
+// Artifact hosts don't serve .glb files, so the same models are packed into models.json (npm run pack) as a fallback.
+let furniturePack = null;
+const packedModels = () => (furniturePack ??= fetch('assets/furniture/kenney/models.json').then((r) => { if (!r.ok) throw new Error(`models.json ${r.status}`); return r.json(); }));
+async function loadFurnitureModel(name) {
+  try {
+    return (await furnitureLoader.loadAsync(`assets/furniture/kenney/${name}`)).scene;
+  } catch (direct) {
+    const b64 = (await packedModels())[name];
+    if (!b64) throw direct;
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return (await furnitureLoader.parseAsync(bytes.buffer, '')).scene;
+  }
+}
 const furnitureAsset = (name) => {
-  if (!furnitureAssets.has(name)) furnitureAssets.set(name, furnitureLoader.loadAsync(`assets/furniture/kenney/${name}`).then((gltf) => gltf.scene));
+  if (!furnitureAssets.has(name)) furnitureAssets.set(name, loadFurnitureModel(name));
   return furnitureAssets.get(name);
 };
 
@@ -804,10 +886,13 @@ function prism(group, mat, points, bot, top) {
 }
 function addFurniture(f, group) {
   const lvl = LV[f.lvl ?? 'main'] ?? 0;
+  const wrap = new THREE.Group();
+  wrap.userData.fid = f.fid;
+  group.add(wrap);
   const fallback = new THREE.Group();
   for (const part of furnitureParts(f)) prism(fallback, FXM[part.mat] ?? FXM.cab, part.poly, lvl + part.y0, lvl + part.y1);
-  group.add(fallback);
-  if (!f.asset) return;
+  wrap.add(fallback);
+  if (!f.asset) return wrap;
   furnitureAsset(f.asset).then((template) => {
     if (!fallback.parent) return;
     const model = template.clone(true);
@@ -831,9 +916,10 @@ function addFurniture(f, group) {
     holder.position.set(f.at[0], lvl + f.y0, f.at[1]);
     holder.rotation.y = -f.rotate * Math.PI / 180;
     holder.add(model);
-    group.add(holder);
-    group.remove(fallback);
+    wrap.add(holder);
+    wrap.remove(fallback);
   }).catch(() => {});
+  return wrap;
 }
 function block(group, mat, x0, x1, z0, z1, bot, top) {
   return prism(group, mat, [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], bot, top);
@@ -883,12 +969,42 @@ const roomArea = (r) => (r.rects?.length ? netArea(r.rects) : 0)
   + (r.polys || []).reduce((s, p) => s + netPolyArea(p), 0)
   + (r.poly ? netPolyArea(r.poly) : 0);
 
+// ---------- Furniture editing: saved layouts ----------
+// Edits are kept in this browser (localStorage) per scheme, as the full list of that scheme's catalog furniture.
+const FURN_KEY = 'hmc-furniture-v1';
+const savedLayouts = (() => {
+  try { return JSON.parse(localStorage.getItem(FURN_KEY) || '{}').layouts || {}; } catch (e) { return {}; }
+})();
+const ORIGINAL_LAYOUT = {};
+let fidCounter = 0;
+const serialiseFurniture = (S) => S.fixtures.filter((f) => f.kind).map((f) => ({
+  kind: f.kind, fid: f.fid, at: [...f.at], rotate: f.rotate, width: f.width, depth: f.depth, height: f.height, lvl: f.lvl ?? 'main', y0: f.y0,
+}));
+function makePiece(o) {
+  const { kind, fid, ...opts } = o;
+  const f = FURNITURE(kind, { ...opts, at: [...o.at] });
+  f.fid = fid ?? `f${++fidCounter}`;
+  return f;
+}
+// Gives every catalog piece an id, remembers the layout as coded, then swaps in a saved one if there is one
+function prepareFurniture(S) {
+  for (const f of S.fixtures) if (f.kind) f.fid ??= `f${++fidCounter}`;
+  ORIGINAL_LAYOUT[S.id] = serialiseFurniture(S);
+  const saved = savedLayouts[S.id];
+  if (!Array.isArray(saved)) return;
+  try {
+    S.fixtures = [...S.fixtures.filter((f) => !f.kind), ...saved.map(makePiece)];
+  } catch (e) { /* a saved layout from an older catalog: keep the coded one */ }
+}
+
 // ---------- Build the house: one group per scheme, only the chosen one visible ----------
 const built = {};
 for (const S of Object.values(SCH)) {
+  prepareFurniture(S);
   const group = new THREE.Group();
   houseGroup.add(group);
-  const ctx = { group, floorMeshes: [], roomLabels: [], newMeshes: [], roomById: {} };
+  const ctx = { group, floorMeshes: [], roomLabels: [], newMeshes: [], doorMeshes: [], roomById: {}, furnGroup: new THREE.Group(), fwrap: {} };
+  group.add(ctx.furnGroup);
   for (const [x0, z0, x1, z1] of S.foundation) block(group, M.found, x0, x1, z0, z1, LV.grade - 0.1, LV.main - 0.06);
   for (const r of S.rooms) {
     r.areaShow = r.area ?? roomArea(r);
@@ -914,9 +1030,10 @@ for (const S of Object.values(SCH)) {
     ctx.roomById[r.id] = r;
     if (r.at) ctx.roomLabels.push(makeLabel(r.name, `${r.area ? '' : '≈'}${Math.round(r.areaShow)} ft²`, [r.at[0], lvl + 0.4, r.at[1]], r.isNew ? 'lbl newlbl' : 'lbl'));
   }
-  for (const w of S.walls) buildWall(w, group, ctx.newMeshes);
+  for (const w of S.walls) buildWall(w, group, ctx.newMeshes, ctx.doorMeshes);
   for (const f of S.fixtures) {
-    addFurniture(f, group);
+    if (f.kind) ctx.fwrap[f.fid] = addFurniture(f, ctx.furnGroup);
+    else addFurniture(f, group);
   }
   for (const roof of S.roofs) {
     if (roof.pts) {
@@ -1000,6 +1117,7 @@ function renderPlan() {
     for (const points of roomPolys(r)) add(`<polygon class="p-rf f-${r.mat}${selected === r.id ? ' sel' : ''}" data-room="${r.id}" points="${svgPoints(points)}"/>`);
   }
   for (const f of S.fixtures.filter((x) => onPlan(x.lvl))) {
+    if (f.kind) add(`<g class="furn${editing && selFid === f.fid ? ' sel' : ''}" data-fid="${f.fid}">`);
     const poly = fixturePoly(f);
     add(`<polygon class="p-fx${f.isNew && showNew ? ' new' : ''}" points="${svgPoints(poly)}"/>`);
     if (f.kind) {
@@ -1021,6 +1139,7 @@ function renderPlan() {
         add(`<polygon class="p-fx-detail" points="${svgPoints(inset.map((p) => fixturePoint(f, p)))}"/>`);
       }
     }
+    if (f.kind) add('</g>');
     const center = f.kind ? f.at : [(f.r[0] + f.r[2]) / 2, (f.r[1] + f.r[3]) / 2];
     if (f.t && !f.kind) add(`<text class="p-fxt" x="${PX(center[0])}" y="${PY(center[1])}">${f.t}</text>`);
   }
@@ -1062,7 +1181,7 @@ function renderPlan() {
       add(`<line class="p-dm" x1="${PX(a[0])}" y1="${PY(a[1])}" x2="${PX(b[0])}" y2="${PY(b[1])}"/>`);
     }
     for (const o of ops) {
-      if (o.fill !== 'door' || !o.swing) continue;
+      if (!tDoors.checked || o.fill !== 'door' || !o.swing) continue;
       const hingeA = o.hinge === 'b' ? o.b : o.a;
       const latchA = o.hinge === 'b' ? o.a : o.b;
       const width = Math.abs(o.b - o.a);
@@ -1105,6 +1224,7 @@ function renderPlan() {
   for (const [a, b] of measurements) measureLine(a, b);
   if (measureStart && measureHover) measureLine(measureStart, measureHover);
   else if (measureStart) add(`<circle class="p-measure-dot" cx="${PX(measureStart[0])}" cy="${PY(measureStart[1])}" r="3"/>`);
+  if (editing && selFid) { const sf = selFurn(); if (sf) add(furnHandles(sf)); }
   // north arrows + scale bar
   const ax = PX(BX.x1 + 1);
   const ay = PY(BX.z0 - MARGIN + 1);
@@ -1177,6 +1297,7 @@ const $ = (id) => document.getElementById(id);
 const cutInput = $('cut');
 cutInput.max = String(H_TOP);
 const tNew = $('t-new');
+const tDoors = $('t-doors');
 const tBear = $('t-bear');
 const tLabels = $('t-labels');
 const tSite = $('t-site');
@@ -1187,6 +1308,29 @@ let tween = null;
 let mode = '3d';
 let scheme = 'existing';
 let selected = null;
+
+// ---------- Remembered page settings (localStorage) ----------
+// Scheme, 2D or 3D, camera, view preset, cut height, every layer and edit mode come back on the next visit.
+// A #scheme link still wins over the saved scheme. Furniture layouts are saved separately, per scheme.
+const UI_KEY = 'hmc-ui-v1';
+const LAYER_BOXES = { new: tNew, bear: tBear, doors: tDoors, labels: tLabels, site: tSite, lights: tLights };
+let uiView = null;     // name of the camera preset in use, or null once the camera has been moved by hand
+let uiReady = false;   // false while the page is starting up, so defaults don't overwrite what was saved
+let uiTimer = 0;
+const loadUI = () => { try { return JSON.parse(localStorage.getItem(UI_KEY) || '{}'); } catch (e) { return {}; } };
+function saveUI() {
+  if (!uiReady) return;
+  clearTimeout(uiTimer);
+  uiTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(UI_KEY, JSON.stringify({
+        v: 1, scheme, mode, cut: cutPlane.constant, view: uiView, edit: editing,
+        cam: has3D ? { pos: camera.position.toArray().map((n) => +n.toFixed(2)), target: controls.target.toArray().map((n) => +n.toFixed(2)) } : null,
+        layers: Object.fromEntries(Object.entries(LAYER_BOXES).map(([k, el]) => [k, el.checked])),
+      }));
+    } catch (e) { /* storage can be blocked; the page just won't remember */ }
+  }, 250);
+}
 
 function fmtFt(v) {
   const ft = Math.floor(v);
@@ -1201,6 +1345,7 @@ function refreshVisibility() {
     ctx.group.visible = on;
     ctx.roomLabels.forEach((l) => { l.visible = show3d && on && tLabels.checked && interior; });
     ctx.newMeshes.forEach(([m, usual]) => { m.material = tNew.checked ? M.newWall : usual; });
+    ctx.doorMeshes.forEach((m) => { m.visible = tDoors.checked; });
   }
   siteLabels.forEach((l) => { l.visible = show3d && tSite.checked; });
   siteGroup.visible = tSite.checked;
@@ -1210,11 +1355,13 @@ function refreshVisibility() {
 function setCut(h) {
   cutPlane.constant = h;
   cutInput.value = String(h);
+  saveUI();
   $('cutv').textContent = h >= H_TOP - 0.05 ? 'Full' : `${fmtFt(h)} above floor`;
   refreshVisibility();
 }
 function goView(name) {
   const v = VIEWS[name];
+  uiView = name;
   document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
   setCut(v.cut);
   if (!has3D) return;
@@ -1295,6 +1442,9 @@ function renderScheme() {
 function setScheme(id) {
   scheme = id;
   clearSelection();
+  selFid = null;
+  updateMarker();
+  syncFurnPanel();
   renderScheme();
   if (mode === '2d') renderPlan();
   refreshVisibility();
@@ -1302,6 +1452,7 @@ function setScheme(id) {
 }
 // #<scheme>, plus /plan when the floor plan is showing, so a link opens the same view
 function writeHash() {
+  saveUI();
   const h = scheme === 'existing' && mode === '3d' ? '' : `#${scheme}${mode === '2d' ? '/plan' : ''}`;
   try { history.replaceState(null, '', h || location.pathname + location.search); } catch (e) { /* the hash is a convenience only */ }
 }
@@ -1334,8 +1485,11 @@ function setMode(m) {
   cutInput.disabled = is2d;
   $('hint').hidden = is2d;
   updateMeasureUI();
+  plan2d.classList.toggle('editing', editing);
+  updateMarker();
   refreshVisibility();
   writeHash();
+  saveUI();
 }
 function clearSelection() {
   for (const ctx of Object.values(built)) ctx.roomById[selected]?.material.emissive.setHex(0x000000);
@@ -1392,6 +1546,434 @@ function select(id) {
 }
 
 document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+// ======================= FURNITURE EDITOR =======================
+let editing = false;
+let selFid = null;
+let furnPress = false;
+const history2 = {}; // per scheme: { undo: [layout], redo: [layout] }
+const levelOptions = Object.keys(LV).filter((k) => k !== 'grade');
+const selFurn = (id = scheme) => SCH[id].fixtures.find((f) => f.fid === selFid && f.kind);
+const levelOf = (f) => f.lvl ?? 'main';
+const snapTo = (v, alt) => (alt ? Math.round(v * 20) / 20 : Math.round(v * 4) / 4);
+const round2 = (v) => Math.round(v * 100) / 100;
+function setHint() {
+  const w = stage.clientWidth;
+  $('hint').textContent = editing
+    ? (w < 560 ? 'Edit: drag a piece to move it · use the form below' : 'Edit furniture: drag a piece to move it · ● rotates · ■ resizes · arrows nudge · [ ] rotate · Del removes')
+    : (w < 560 ? 'Drag to orbit · pinch to zoom · tap a room' : 'Drag to orbit · right-drag to pan · scroll to zoom · WASD move · Q/E turn · R/F zoom · click a room');
+}
+function furnBox(f) {
+  const q = fixturePoly(f);
+  return [Math.min(...q.map((a) => a[0])), Math.min(...q.map((a) => a[1])), Math.max(...q.map((a) => a[0])), Math.max(...q.map((a) => a[1]))];
+}
+// Walls as axis-aligned boxes: [x0, z0, x1, z1] (diagonal walls are skipped)
+function wallBox(w) {
+  const g = wallGeom(w);
+  if (g.diag) return null;
+  const c = g.horiz ? w.z0 : w.x0;
+  return g.horiz ? [g.a0, c + g.n0, g.a1, c + g.n1] : [c + g.n0, g.a0, c + g.n1, g.a1];
+}
+function overlapNote(f) {
+  const a = furnBox(f);
+  const ov = (b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  const hits = [];
+  for (const o of SCH[scheme].fixtures) {
+    if (o === f || o.plan === false || o.h < 0.5 || levelOf(o) !== levelOf(f)) continue;
+    // only things that share some height are in the way: a cabinet hung above a desk isn't
+    const oBase = o.kind ? o.y0 : o.y0 - (LV[levelOf(o)] ?? 0);
+    if (oBase >= f.y0 + f.height || f.y0 >= oBase + o.h) continue;
+    if (ov(o.kind ? furnBox(o) : o.r) > 0.4) hits.push(o.t || o.kind);
+  }
+  for (const w of SCH[scheme].walls) {
+    const box = wallBox(w);
+    if (!box || Math.abs(wallGeom(w).yb - (LV[levelOf(f)] ?? 0)) > 0.8) continue;
+    if (ov(box) > 0.8) { hits.push('a wall'); break; }
+  }
+  return hits.length ? `Overlaps ${[...new Set(hits)].join(', ')}.` : '';
+}
+// ---- layout state, undo, saving
+function layoutOf(id = scheme) { return serialiseFurniture(SCH[id]); }
+function setLayout(id, list) {
+  const S = SCH[id];
+  S.fixtures = [...S.fixtures.filter((f) => !f.kind), ...list.map(makePiece)];
+}
+function rebuild3D(id = scheme) {
+  const ctx = built[id];
+  ctx.furnGroup.clear();
+  ctx.fwrap = {};
+  for (const f of SCH[id].fixtures) if (f.kind) ctx.fwrap[f.fid] = addFurniture(f, ctx.furnGroup);
+}
+function persist() {
+  try {
+    const strip = (list) => JSON.stringify(list.map(({ fid, ...r }) => r));
+    const layouts = {};
+    for (const id of SCHEME_IDS) if (strip(layoutOf(id)) !== strip(ORIGINAL_LAYOUT[id])) layouts[id] = layoutOf(id).map(({ fid, ...r }) => r);
+    if (Object.keys(layouts).length) localStorage.setItem(FURN_KEY, JSON.stringify({ v: 1, layouts }));
+    else localStorage.removeItem(FURN_KEY);
+  } catch (e) { /* storage can be blocked; Show as code still works */ }
+}
+function pushUndo() {
+  const h = (history2[scheme] ??= { undo: [], redo: [] });
+  h.undo.push(layoutOf());
+  if (h.undo.length > 100) h.undo.shift();
+  h.redo = [];
+}
+function changed() {
+  rebuild3D();
+  persist();
+  if (mode === '2d') renderPlan();
+  updateMarker();
+  syncFurnPanel();
+}
+// Runs a change as one undoable step
+function edit(fn) {
+  pushUndo();
+  fn();
+  changed();
+}
+function undoRedo(dir) {
+  const h = history2[scheme];
+  const from = dir < 0 ? h?.undo : h?.redo;
+  if (!from?.length) return;
+  (dir < 0 ? h.redo : h.undo).push(layoutOf());
+  setLayout(scheme, from.pop());
+  if (!selFurn()) selFid = null;
+  changed();
+}
+// ---- the selected-piece marker in 3D
+let furnMarker = null;
+function updateMarker() {
+  if (furnMarker) { scene.remove(furnMarker); furnMarker.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); furnMarker = null; }
+  const f = selFurn();
+  if (!f || !editing || !has3D || mode !== '3d') return;
+  // a translucent footprint on the floor and an outline round the piece, drawn on top of everything
+  const y = (LV[f.lvl ?? 'main'] ?? 0) + f.y0;
+  const poly = fixturePoly(f);
+  furnMarker = new THREE.Group();
+  const fill = prism(furnMarker, new THREE.MeshBasicMaterial({ color: 0xdb7c55, transparent: true, opacity: 0.4, depthTest: false }), poly, y + 0.02, y + 0.05);
+  fill.castShadow = false;
+  fill.receiveShadow = false;
+  const top = y + f.h + 0.05;
+  const loop = (h) => new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(poly.map(([x, z]) => new THREE.Vector3(x, h, z))), new THREE.LineBasicMaterial({ color: 0xff8f5f, depthTest: false }));
+  furnMarker.add(loop(y + 0.05), loop(top));
+  furnMarker.traverse((o) => { o.renderOrder = 10; });
+  scene.add(furnMarker);
+}
+// ---- the side panel
+const kindOptions = (sel) => Object.entries(FURNITURE_TYPES).map(([k, t]) => { const o = document.createElement('option'); o.value = k; o.textContent = t.label; if (k === sel) o.selected = true; return o; });
+$('f-kind').replaceChildren(...kindOptions('sofa'));
+$('ff-kind').replaceChildren(...kindOptions());
+$('ff-lvl').replaceChildren(...levelOptions.map((k) => { const o = document.createElement('option'); o.value = k; o.textContent = LEVELS[k] ?? k; return o; }));
+const field = { x: $('ff-x'), z: $('ff-z'), y: $('ff-y'), w: $('ff-w'), d: $('ff-d'), h: $('ff-h'), r: $('ff-r'), kind: $('ff-kind'), lvl: $('ff-lvl') };
+function syncFurnPanel() {
+  $('furn-tools').hidden = !editing;
+  $('furn-tools').style.display = editing ? 'grid' : 'none';
+  const f = editing ? selFurn() : null;
+  $('furn-form').hidden = !f;
+  $('furn-form').style.display = f ? 'grid' : 'none';
+  $('furn-none').hidden = !!f;
+  $('furn-help').textContent = 'Changes are saved in this browser for each plan. Use Show as code to get them into the model file.';
+  const h = history2[scheme];
+  $('fb-undo').disabled = !h?.undo.length;
+  $('fb-redo').disabled = !h?.redo.length;
+  if (!f) return;
+  field.kind.value = f.kind;
+  field.x.value = round2(f.at[0]);
+  field.z.value = round2(f.at[1]);
+  field.w.value = round2(f.width * 12);
+  field.d.value = round2(f.depth * 12);
+  field.h.value = round2(f.height * 12);
+  field.r.value = round2(f.rotate);
+  field.y.value = round2(f.y0 * 12);
+  field.lvl.value = f.lvl ?? 'main';
+  const note = overlapNote(f);
+  $('furn-warn').textContent = note;
+  $('furn-warn').hidden = !note;
+}
+function selectFurn(fid) {
+  selFid = fid;
+  if (mode === '2d') renderPlan();
+  updateMarker();
+  syncFurnPanel();
+}
+function replacePiece(f, opts) {
+  const list = layoutOf().map((o) => (o.fid === f.fid ? { ...o, ...opts } : o));
+  setLayout(scheme, list);
+}
+function applyField(key) {
+  const f = selFurn();
+  if (!f) return;
+  const v = parseFloat(field[key].value);
+  edit(() => {
+    if (key === 'kind') { const nf = FURNITURE(field.kind.value, { at: f.at, rotate: f.rotate, lvl: f.lvl ?? 'main', y0: f.y0 }); replacePiece(f, { kind: nf.kind, width: nf.width, depth: nf.depth, height: nf.height }); return; }
+    if (key === 'lvl') { replacePiece(f, { lvl: field.lvl.value }); return; }
+    if (!Number.isFinite(v)) return;
+    if (key === 'x') replacePiece(f, { at: [v, f.at[1]] });
+    else if (key === 'z') replacePiece(f, { at: [f.at[0], v] });
+    else if (key === 'w') replacePiece(f, { width: Math.max(0.5, v / 12) });
+    else if (key === 'd') replacePiece(f, { depth: Math.max(0.5, v / 12) });
+    else if (key === 'h') replacePiece(f, { height: Math.max(0.1, v / 12) });
+    else if (key === 'r') replacePiece(f, { rotate: ((v % 360) + 360) % 360 });
+    else if (key === 'y') replacePiece(f, { y0: Math.max(0, v / 12) });
+  });
+}
+for (const key of Object.keys(field)) field[key].addEventListener('change', () => applyField(key));
+function deleteSelected() {
+  const f = selFurn();
+  if (!f) return;
+  edit(() => { setLayout(scheme, layoutOf().filter((o) => o.fid !== f.fid)); selFid = null; });
+}
+function rotateSelected(deg) {
+  const f = selFurn();
+  if (f) edit(() => replacePiece(f, { rotate: ((f.rotate + deg) % 360 + 360) % 360 }));
+}
+// Distance from a point to the nearest wall going in direction [dx, dz], or Infinity
+function wallGap(x, z, dx, dz, yb) {
+  let best = Infinity;
+  for (const w of SCH[scheme].walls) {
+    const g = wallGeom(w);
+    if (g.diag || Math.abs(g.yb - yb) > 0.8) continue;
+    const c = g.horiz ? w.z0 : w.x0;
+    const along = g.horiz ? x : z;
+    const across = g.horiz ? z : x;
+    if (along < g.a0 - 0.05 || along > g.a1 + 0.05) continue;
+    const dir = g.horiz ? dz : dx;
+    if (!dir) continue;
+    const d = dir > 0 ? c + g.n0 - across : across - (c + g.n1);
+    if (d >= -0.6 && d < best) best = Math.max(d, 0); // drawn boxes often sit a few inches inside the wall band
+  }
+  return best;
+}
+// Turn the back to the nearest wall and slide the piece against it
+function backToWall() {
+  const f = selFurn();
+  if (!f) return;
+  const yb = LV[levelOf(f)] ?? 0;
+  const dirs = [[0, -1, 0], [1, 0, 90], [0, 1, 180], [-1, 0, 270]];
+  const reach = (deg) => { const b = furnBox({ ...f, rotate: deg }); return [(b[2] - b[0]) / 2, (b[3] - b[1]) / 2]; };
+  const gapFor = (dir, deg) => { const [hx, hz] = reach(deg); return wallGap(f.at[0] + dir[0] * hx, f.at[1] + dir[1] * hz, dir[0], dir[1], yb); };
+  const best = dirs.reduce((a, b) => (gapFor(b, f.rotate) < gapFor(a, f.rotate) ? b : a));
+  const deg = best[2];
+  const gap = gapFor(best, deg);
+  const move = Number.isFinite(gap) ? gap : 0;
+  edit(() => replacePiece(f, { rotate: deg, at: [round2(f.at[0] + best[0] * move), round2(f.at[1] + best[1] * move)] }));
+}
+function addPiece() {
+  const r = selected && built[scheme].roomById[selected];
+  const poly = r && roomPolys(r)[0];
+  const at = poly ? [round2(poly.reduce((n, p) => n + p[0], 0) / poly.length), round2(poly.reduce((n, p) => n + p[1], 0) / poly.length)] : [CX, CZ];
+  const piece = FURNITURE($('f-kind').value, { at, lvl: r && LV[r.lvl] !== undefined ? r.lvl : 'main' });
+  edit(() => {
+    const o = { kind: piece.kind, at: piece.at, rotate: 0, width: piece.width, depth: piece.depth, height: piece.height, lvl: piece.lvl ?? 'main', y0: 0 };
+    const made = makePiece(o);
+    setLayout(scheme, [...layoutOf(), { ...o, fid: made.fid }]);
+    selFid = made.fid;
+  });
+  if (mode === '2d') renderPlan();
+}
+function duplicateSelected() {
+  const f = selFurn();
+  if (!f) return;
+  edit(() => {
+    const o = layoutOf().find((x) => x.fid === f.fid);
+    const made = makePiece({ ...o, fid: undefined, at: [o.at[0] + 1, o.at[1] + 1] });
+    setLayout(scheme, [...layoutOf(), { ...o, at: [o.at[0] + 1, o.at[1] + 1], fid: made.fid }]);
+    selFid = made.fid;
+  });
+}
+function furnitureCode() {
+  const lines = layoutOf().map((o) => {
+    const t = FURNITURE_TYPES[o.kind];
+    const bits = [`at: [${round2(o.at[0])}, ${round2(o.at[1])}]`];
+    const differs = (a, b) => Math.abs(a - b) > 0.0005;
+    if (o.rotate) bits.push(`rotate: ${round2(o.rotate)}`);
+    if (differs(o.width, t.width)) bits.push(`widthIn: ${round2(o.width * 12)}`);
+    if (differs(o.depth, t.depth)) bits.push(`depthIn: ${round2(o.depth * 12)}`);
+    if (differs(o.height, t.height)) bits.push(`heightIn: ${round2(o.height * 12)}`);
+    if (o.lvl !== 'main') bits.push(`lvl: '${o.lvl}'`);
+    if (o.y0) bits.push(`raiseIn: ${round2(o.y0 * 12)}`);
+    return `FURNITURE('${o.kind}', { ${bits.join(', ')} }),`;
+  });
+  return `// ${SCH[scheme].name}: ${lines.length} pieces\n${lines.join('\n')}\n`;
+}
+$('t-edit').addEventListener('change', (e) => {
+  editing = e.target.checked;
+  saveUI();
+  if (!editing) selFid = null;
+  if (editing && measuring) { measuring = false; measureStart = null; measureHover = null; updateMeasureUI(); }
+  plan2d.classList.toggle('editing', editing);
+  setHint();
+  if (mode === '2d') renderPlan();
+  updateMarker();
+  syncFurnPanel();
+});
+$('f-add').addEventListener('click', addPiece);
+$('fb-rot').addEventListener('click', () => rotateSelected(90));
+$('fb-wall').addEventListener('click', backToWall);
+$('fb-dup').addEventListener('click', duplicateSelected);
+$('fb-del').addEventListener('click', deleteSelected);
+$('fb-undo').addEventListener('click', () => undoRedo(-1));
+$('fb-redo').addEventListener('click', () => undoRedo(1));
+$('fb-code').addEventListener('click', () => {
+  const box = $('furn-text');
+  box.value = furnitureCode();
+  box.hidden = false;
+  box.select();
+  try { navigator.clipboard?.writeText(box.value); } catch (e) { /* the text is selected, so Ctrl+C works */ }
+});
+$('fb-reset').addEventListener('click', () => {
+  if (!layoutOf().length && !ORIGINAL_LAYOUT[scheme].length) return;
+  edit(() => { setLayout(scheme, ORIGINAL_LAYOUT[scheme]); selFid = null; });
+});
+document.addEventListener('keydown', (e) => {
+  if (!editing || e.target.closest('input, textarea, select')) return;
+  const key = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && (key === 'z' || key === 'y')) { e.preventDefault(); undoRedo(key === 'z' && !e.shiftKey ? -1 : 1); return; }
+  const f = selFurn();
+  if (!f) return;
+  const step = e.shiftKey ? 1 : 0.25;
+  const arrows = { arrowleft: [-step, 0], arrowright: [step, 0], arrowup: [0, -step], arrowdown: [0, step] };
+  if (arrows[key]) { e.preventDefault(); edit(() => replacePiece(f, { at: [round2(f.at[0] + arrows[key][0]), round2(f.at[1] + arrows[key][1])] })); }
+  else if (key === '[' || key === ']') rotateSelected(key === ']' ? 90 : -90);
+  else if (key === 'pageup' || key === 'pagedown') { e.preventDefault(); edit(() => replacePiece(f, { y0: Math.max(0, round2(f.y0 + (key === 'pageup' ? step : -step))) })); }
+  else if (key === 'delete' || key === 'backspace') { e.preventDefault(); deleteSelected(); }
+  else if (key === 'escape') selectFurn(null);
+});
+// ---- 2D: handles, drag to move / rotate / resize
+function furnHandles(f) {
+  const P = (x, z) => fixturePoint(f, [x, z]);
+  const hw = f.width / 2;
+  const hd = f.depth / 2;
+  const a = P(0, -hd);
+  const r = P(0, -hd - 1.4);
+  const c = P(hw, hd);
+  return `<g class="fh"><line x1="${PX(a[0])}" y1="${PY(a[1])}" x2="${PX(r[0])}" y2="${PY(r[1])}"/>`
+    + `<circle data-handle="rotate" cx="${PX(r[0])}" cy="${PY(r[1])}" r="5"/>`
+    + `<rect data-handle="resize" x="${PX(c[0]) - 4.5}" y="${PY(c[1]) - 4.5}" width="9" height="9"/></g>`;
+}
+let drag = null;
+let dragFrame = 0;
+// the plan point under the pointer, in feet, not snapped
+function planPointRaw(e) {
+  const svg = plan2d.querySelector('svg');
+  const matrix = svg?.getScreenCTM();
+  if (!matrix) return null;
+  const q = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse());
+  return [q.x / K + BX.x0 - MARGIN, q.y / K + BX.z0 - MARGIN - 3];
+}
+plan2d.addEventListener('pointerdown', (e) => {
+  if (!editing || measuring || e.button !== 0) return;
+  const handle = e.target.closest('[data-handle]');
+  const g = e.target.closest('[data-fid]');
+  if (!handle && !g) { if (selFid) selectFurn(null); return; }
+  e.preventDefault();
+  const fid = g ? g.dataset.fid : selFid;
+  if (fid !== selFid) selectFurn(fid);
+  const f = selFurn();
+  const start = planPointRaw(e);
+  if (!f || !start) return;
+  drag = { type: handle ? handle.dataset.handle : 'move', start, orig: { at: [...f.at], rotate: f.rotate, width: f.width, depth: f.depth }, moved: false, pushed: false };
+  plan2d.setPointerCapture(e.pointerId);
+});
+plan2d.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const f = selFurn();
+  const p = planPointRaw(e);
+  if (!f || !p) return;
+  const o = drag.orig;
+  if (!drag.pushed) { if (Math.hypot(p[0] - drag.start[0], p[1] - drag.start[1]) < 0.15) return; pushUndo(); drag.pushed = true; }
+  drag.moved = true;
+  let next;
+  if (drag.type === 'move') {
+    next = { at: [snapTo(o.at[0] + p[0] - drag.start[0], e.altKey), snapTo(o.at[1] + p[1] - drag.start[1], e.altKey)] };
+  } else if (drag.type === 'rotate') {
+    let deg = Math.atan2(p[0] - o.at[0], -(p[1] - o.at[1])) * 180 / Math.PI;
+    deg = e.altKey ? Math.round(deg) : Math.round(deg / 15) * 15;
+    next = { rotate: ((deg % 360) + 360) % 360 };
+  } else {
+    // the corner opposite the handle stays put; sizes snap to whole inches (quarter inches with Alt)
+    const l = rotatePoint([p[0] - o.at[0], p[1] - o.at[1]], -o.rotate);
+    const x0 = -o.width / 2;
+    const z0 = -o.depth / 2;
+    const inch = (v) => Math.round(v * 12 / (e.altKey ? 0.25 : 1)) * (e.altKey ? 0.25 : 1) / 12;
+    const w = Math.max(0.5, inch(l[0] - x0));
+    const d = Math.max(0.5, inch(l[1] - z0));
+    const mid = rotatePoint([x0 + w / 2, z0 + d / 2], o.rotate);
+    next = { width: w, depth: d, at: [round2(o.at[0] + mid[0]), round2(o.at[1] + mid[1])] };
+  }
+  Object.assign(f, next);
+  f.r = FURNITURE(f.kind, { at: f.at, width: f.width, depth: f.depth }).r;
+  // redraw the plan once per frame while dragging
+  if (!dragFrame) dragFrame = requestAnimationFrame(() => { dragFrame = 0; renderPlan(); });
+  syncFurnPanel();
+});
+function endDrag(e) {
+  if (!drag) return;
+  const moved = drag.moved;
+  drag = null;
+  try { plan2d.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
+  if (moved) changed();
+}
+plan2d.addEventListener('pointerup', endDrag);
+plan2d.addEventListener('pointercancel', endDrag);
+// ---- 3D: click to pick, drag to move along the floor
+if (has3D) {
+  const ray3 = new THREE.Raycaster();
+  const ndc3 = new THREE.Vector2();
+  const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  let d3 = null;
+  const aim = (e) => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc3.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray3.setFromCamera(ndc3, camera);
+  };
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    if (!editing || e.button !== 0) return;
+    aim(e);
+    const ctx = built[scheme];
+    const hit = ray3.intersectObjects(ctx.furnGroup.children, true).find((h) => h.point.y <= cutPlane.constant);
+    if (!hit) return;
+    let o = hit.object;
+    while (o && o.userData.fid === undefined) o = o.parent;
+    if (!o) return;
+    furnPress = true;
+    controls.enabled = false; // the camera stays put while a piece is dragged
+    selectFurn(o.userData.fid);
+    const f = selFurn();
+    floor.constant = -((LV[f.lvl ?? 'main'] ?? 0) + f.y0);
+    const at = new THREE.Vector3();
+    ray3.ray.intersectPlane(floor, at);
+    d3 = { fid: f.fid, off: [at.x - f.at[0], at.z - f.at[1]], orig: [...f.at], pushed: false };
+    renderer.domElement.setPointerCapture(e.pointerId);
+  }, true);
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (!d3) return;
+    const f = selFurn();
+    if (!f) return;
+    aim(e);
+    const at = new THREE.Vector3();
+    if (!ray3.ray.intersectPlane(floor, at)) return;
+    const next = [snapTo(at.x - d3.off[0], e.altKey), snapTo(at.z - d3.off[1], e.altKey)];
+    if (!d3.pushed) { if (Math.hypot(next[0] - d3.orig[0], next[1] - d3.orig[1]) < 0.15) return; pushUndo(); d3.pushed = true; }
+    f.at = next;
+    f.r = FURNITURE(f.kind, { at: f.at, width: f.width, depth: f.depth }).r;
+    built[scheme].fwrap[f.fid]?.position.set(next[0] - d3.orig[0], 0, next[1] - d3.orig[1]);
+    updateMarker();
+    syncFurnPanel();
+  });
+  const end3 = (e) => {
+    if (!d3) return;
+    const moved = d3.pushed;
+    d3 = null;
+    controls.enabled = true;
+    try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
+    if (moved) changed();
+  };
+  renderer.domElement.addEventListener('pointerup', end3);
+  renderer.domElement.addEventListener('pointercancel', end3);
+}
+syncFurnPanel();
+
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => goView(b.dataset.view)));
 $('measure').addEventListener('click', () => {
   measuring = !measuring;
@@ -1415,20 +1997,24 @@ document.addEventListener('keydown', (e) => {
   renderPlan();
 });
 cutInput.addEventListener('input', () => {
+  uiView = null;
   document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
   setCut(parseFloat(cutInput.value));
 });
-[tLabels, tSite, tLights].forEach((el) => el.addEventListener('change', refreshVisibility));
+[tLabels, tSite, tLights].forEach((el) => el.addEventListener('change', () => { refreshVisibility(); saveUI(); }));
+tDoors.addEventListener('change', () => { refreshVisibility(); if (mode === '2d') renderPlan(); saveUI(); });
 // these two also colour the 2D plan
-[tNew, tBear].forEach((el) => el.addEventListener('change', () => { refreshVisibility(); if (mode === '2d') renderPlan(); }));
+[tNew, tBear].forEach((el) => el.addEventListener('change', () => { refreshVisibility(); if (mode === '2d') renderPlan(); saveUI(); }));
 
 if (has3D) {
   controls.addEventListener('start', () => { tween = null; });
+  controls.addEventListener('end', () => { uiView = null; document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', 'false')); saveUI(); });
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   let downAt = null;
   renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener('pointerup', (e) => {
+    if (furnPress) { furnPress = false; return; }
     if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
     const r = renderer.domElement.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -1452,6 +2038,55 @@ applyTheme();
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+// ---------- Keyboard navigation (3D view) ----------
+// W/S move forward and back along the ground, A/D slide sideways, Q/E turn the view around the point you're looking at,
+// R/F zoom in and out. Hold Shift to go three times faster. Keys are ignored while typing in a field.
+const NAV_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f']);
+const navDown = new Set();
+let navFast = false;
+const isTyping = (t) => !!t?.closest?.('input, textarea, select, [contenteditable]');
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || mode !== '3d' || !has3D) return;
+  const k = e.key.toLowerCase();
+  if (!NAV_KEYS.has(k)) return;
+  e.preventDefault();
+  navFast = e.shiftKey;
+  navDown.add(k);
+  tween = null; // a key press takes over from a camera preset that is still sliding into place
+  uiView = null;
+  document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+});
+window.addEventListener('keyup', (e) => {
+  navFast = e.shiftKey;
+  if (navDown.delete(e.key.toLowerCase()) && !navDown.size) saveUI();
+});
+window.addEventListener('blur', () => { if (navDown.size) { navDown.clear(); saveUI(); } });
+const navOff = new THREE.Vector3();
+const navFwd = new THREE.Vector3();
+const navRight = new THREE.Vector3();
+const navMove = new THREE.Vector3();
+function navStep(dt) {
+  if (!navDown.size || mode !== '3d' || !has3D) return;
+  navOff.copy(camera.position).sub(controls.target);
+  const dist = navOff.length();
+  const speed = Math.max(6, dist * 0.7) * (navFast ? 3 : 1);
+  navFwd.set(-navOff.x, 0, -navOff.z);
+  if (navFwd.lengthSq() < 1e-6) navFwd.set(0, 0, -1); // looking straight down: forward is plan north
+  navFwd.normalize();
+  navRight.set(-navFwd.z, 0, navFwd.x);
+  const axis = (plus, minus) => (navDown.has(plus) ? 1 : 0) - (navDown.has(minus) ? 1 : 0);
+  navMove.set(0, 0, 0).addScaledVector(navFwd, axis('w', 's') * speed * dt).addScaledVector(navRight, axis('d', 'a') * speed * dt);
+  camera.position.add(navMove);
+  controls.target.add(navMove);
+  const turn = axis('e', 'q') * (navFast ? 2.4 : 0.9) * dt; // radians; E swings the camera to its right
+  const zoom = Math.exp(-axis('r', 'f') * (navFast ? 3 : 1.2) * dt);
+  if (turn || zoom !== 1) {
+    navOff.applyAxisAngle(THREE.Object3D.DEFAULT_UP, turn).multiplyScalar(zoom);
+    navOff.setLength(Math.min(controls.maxDistance, Math.max(controls.minDistance, navOff.length())));
+    camera.position.copy(controls.target).add(navOff);
+  }
+}
+
 // ---------- Sizing and loop ----------
 function resize() {
   const w = stage.clientWidth;
@@ -1462,24 +2097,42 @@ function resize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   if (mode === '2d') { updateMeasureUI(); return; }
-  $('hint').textContent = w < 560
-    ? 'Drag to orbit · pinch to zoom · tap a room'
-    : 'Drag to orbit · right-drag to pan · scroll to zoom · click a room';
+  setHint();
 }
 new ResizeObserver(resize).observe(stage);
 resize();
 
 renderStatic();
+const remembered = loadUI();
 const [hashScheme, hashView] = decodeURIComponent(location.hash.slice(1)).split('/');
-scheme = SCH[hashScheme] ? hashScheme : 'existing';
+// a link wins over what was saved
+scheme = SCH[hashScheme] ? hashScheme : (SCH[remembered.scheme] ? remembered.scheme : 'existing');
+for (const [k, el] of Object.entries(LAYER_BOXES)) if (typeof remembered.layers?.[k] === 'boolean') el.checked = remembered.layers[k];
 renderScheme();
 camera.position.set(...VIEWS.doll.pos);
 if (has3D) controls.target.set(...VIEWS.doll.target);
-setMode(hashView === 'plan' ? '2d' : '3d');
-setCut(VIEWS.doll.cut);
+const goodVec = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+if (has3D && VIEWS[remembered.view]) {
+  camera.position.set(...VIEWS[remembered.view].pos);
+  controls.target.set(...VIEWS[remembered.view].target);
+  uiView = remembered.view;
+  document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === uiView)));
+} else if (has3D && goodVec(remembered.cam?.pos) && goodVec(remembered.cam?.target)) {
+  camera.position.set(...remembered.cam.pos);
+  controls.target.set(...remembered.cam.target);
+  document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+}
+const startIn2d = SCH[hashScheme] ? hashView === 'plan' : remembered.mode === '2d';
+setMode(startIn2d || !has3D ? '2d' : '3d');
+setCut(Number.isFinite(remembered.cut) ? remembered.cut : (VIEWS[remembered.view]?.cut ?? VIEWS.doll.cut));
+if (remembered.edit) { $('t-edit').checked = true; $('t-edit').dispatchEvent(new Event('change')); }
+uiReady = true;
 
 if (has3D) {
+  let lastFrame = 0;
   renderer.setAnimationLoop((now) => {
+    navStep(Math.min(0.1, (now - lastFrame) / 1000));
+    lastFrame = now;
     if (tween) tween(now);
     controls.update();
     renderer.render(scene, camera);

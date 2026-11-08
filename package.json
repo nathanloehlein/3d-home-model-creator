@@ -12,6 +12,7 @@
     "start": "node tools/serve.mjs",
     "build": "node tools/build.mjs",
     "glb": "node tools/ha_floor3d.mjs",
+    "pack": "node tools/pack_furniture.mjs",
     "test": "node --test"
   }
 }

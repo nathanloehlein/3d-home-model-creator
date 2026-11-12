@@ -21,7 +21,7 @@ A 3D model and floor plan of one property, with remodel schemes and a Home Assis
 
 ## The page itself
 
-- The page has an in-browser furniture editor, keyboard navigation in 3D (WASD, Q/E, R/F) and remembered settings (`hmc-ui-v1`, `hmc-furniture-v1` in localStorage). A saved furniture layout hides edits made in the file, so tell the user to Reset plan after pasting Show-as-code output into the data.
+- The page has an in-browser furniture editor, keyboard navigation in 3D (WASD, Z/X, Q/E, R/F) and remembered settings (`hmc-ui-v1`, `hmc-furniture-v1` in localStorage). A saved furniture layout hides edits made in the file, so tell the user to Reset plan after pasting Show-as-code output into the data.
 - Furniture editor code and the nav and settings code sit after the renderer's plan code, outside the DATA block. Keep them out of the DATA, WALLS and SCHEME blocks, which the Node tools evaluate.
 - Doors are `DOOR(a, b, { hinge, swing })` data; the Doors layer only toggles their swing arcs and slabs.
 

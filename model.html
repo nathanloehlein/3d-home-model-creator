@@ -225,6 +225,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
         <label class="tog" id="tog-new" hidden><input type="checkbox" id="t-new" checked> New walls and windows <span class="key new" aria-hidden="true"></span></label>
         <label class="tog" id="tog-bear" hidden><input type="checkbox" id="t-bear" checked> Bearing walls <span class="key" aria-hidden="true"></span></label>
         <label class="tog"><input type="checkbox" id="t-doors" checked> Doors and swings</label>
+        <label class="tog"><input type="checkbox" id="t-roof" checked> Roof and ceilings</label>
         <label class="tog"><input type="checkbox" id="t-labels" checked> Room labels</label>
         <label class="tog"><input type="checkbox" id="t-site" checked> Site, paving and lot line</label>
         <label class="tog"><input type="checkbox" id="t-lights"> Light positions (Home Assistant)</label>
@@ -1298,6 +1299,7 @@ const cutInput = $('cut');
 cutInput.max = String(H_TOP);
 const tNew = $('t-new');
 const tDoors = $('t-doors');
+const tRoof = $('t-roof');
 const tBear = $('t-bear');
 const tLabels = $('t-labels');
 const tSite = $('t-site');
@@ -1313,7 +1315,7 @@ let selected = null;
 // Scheme, 2D or 3D, camera, view preset, cut height, every layer and edit mode come back on the next visit.
 // A #scheme link still wins over the saved scheme. Furniture layouts are saved separately, per scheme.
 const UI_KEY = 'hmc-ui-v1';
-const LAYER_BOXES = { new: tNew, bear: tBear, doors: tDoors, labels: tLabels, site: tSite, lights: tLights };
+const LAYER_BOXES = { new: tNew, bear: tBear, doors: tDoors, roof: tRoof, labels: tLabels, site: tSite, lights: tLights };
 let uiView = null;     // name of the camera preset in use, or null once the camera has been moved by hand
 let uiReady = false;   // false while the page is starting up, so defaults don't overwrite what was saved
 let uiTimer = 0;
@@ -1338,6 +1340,9 @@ function fmtFt(v) {
   return inch === 12 ? `${ft + 1}′ 0″` : `${ft}′ ${inch}″`;
 }
 function refreshVisibility() {
+  // Hiding the roof and ceilings lets a high cut show the sloped wall tops from above.
+  M.roof.visible = tRoof.checked;
+  M.ceiling.visible = tRoof.checked;
   const interior = cutPlane.constant < H_TOP - 0.05;
   const show3d = mode === '3d';
   for (const [id, ctx] of Object.entries(built)) {
@@ -1560,7 +1565,7 @@ function setHint() {
   const w = stage.clientWidth;
   $('hint').textContent = editing
     ? (w < 560 ? 'Edit: drag a piece to move it · use the form below' : 'Edit furniture: drag a piece to move it · ● rotates · ■ resizes · arrows nudge · [ ] rotate · Del removes')
-    : (w < 560 ? 'Drag to orbit · pinch to zoom · tap a room' : 'Drag to orbit · right-drag to pan · scroll to zoom · WASD move · Q/E turn · R/F zoom · click a room');
+    : (w < 560 ? 'Drag to orbit · pinch to zoom · tap a room' : 'Drag to orbit · right-drag to pan · scroll to zoom · WASD move · Z/X up/down · Q/E turn · R/F zoom · click a room');
 }
 function furnBox(f) {
   const q = fixturePoly(f);
@@ -2001,7 +2006,7 @@ cutInput.addEventListener('input', () => {
   document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
   setCut(parseFloat(cutInput.value));
 });
-[tLabels, tSite, tLights].forEach((el) => el.addEventListener('change', () => { refreshVisibility(); saveUI(); }));
+[tLabels, tSite, tLights, tRoof].forEach((el) => el.addEventListener('change', () => { refreshVisibility(); saveUI(); }));
 tDoors.addEventListener('change', () => { refreshVisibility(); if (mode === '2d') renderPlan(); saveUI(); });
 // these two also colour the 2D plan
 [tNew, tBear].forEach((el) => el.addEventListener('change', () => { refreshVisibility(); if (mode === '2d') renderPlan(); saveUI(); }));
@@ -2040,8 +2045,8 @@ new MutationObserver(applyTheme).observe(document.documentElement, { attributes:
 
 // ---------- Keyboard navigation (3D view) ----------
 // W/S move forward and back along the ground, A/D slide sideways, Q/E turn the view around the point you're looking at,
-// R/F zoom in and out. Hold Shift to go three times faster. Keys are ignored while typing in a field.
-const NAV_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f']);
+// R/F zoom in and out, Z/X raise and lower the camera. Hold Shift to go three times faster. Keys are ignored while typing in a field.
+const NAV_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f', 'z', 'x']);
 const navDown = new Set();
 let navFast = false;
 const isTyping = (t) => !!t?.closest?.('input, textarea, select, [contenteditable]');
@@ -2076,6 +2081,9 @@ function navStep(dt) {
   navRight.set(-navFwd.z, 0, navFwd.x);
   const axis = (plus, minus) => (navDown.has(plus) ? 1 : 0) - (navDown.has(minus) ? 1 : 0);
   navMove.set(0, 0, 0).addScaledVector(navFwd, axis('w', 's') * speed * dt).addScaledVector(navRight, axis('d', 'a') * speed * dt);
+  navMove.y += axis('z', 'x') * speed * dt;
+  // keep the look-at point between the ground and well above the roof
+  navMove.y = Math.min(80 - controls.target.y, Math.max(0 - controls.target.y, navMove.y));
   camera.position.add(navMove);
   controls.target.add(navMove);
   const turn = axis('e', 'q') * (navFast ? 2.4 : 0.9) * dt; // radians; E swings the camera to its right

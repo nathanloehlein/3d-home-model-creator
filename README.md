@@ -20,7 +20,7 @@ A 3D model and floor plan of a house, built from one block of data in one HTML f
   - A built-in Shell option shows the house with every inside wall gone.
 - **Room areas** are estimated from the wall lines, or you enter a measured figure.
 - **Home Assistant**: a GLB with named objects for floor3d-card, and a script that pushes the dashboard.
-- **Keyboard navigation** in 3D (WASD, Q/E, R/F), and the page **remembers** your scheme, camera, cut height and layers.
+- **Keyboard navigation** in 3D (WASD, Z/X, Q/E, R/F), and the page **remembers** your scheme, camera, cut height and layers.
 - Light and dark themes; works on a phone.
 
 ## Quick start
@@ -174,9 +174,13 @@ Only catalog furniture is editable. Boxes made with `fx()` stay as they are in t
 
 **Doors and swings** in the Layers section shows or hides the swing arcs in the floor plan and the door slabs in 3D. Doors themselves are data: see `DOOR()` above.
 
+### Roof and ceilings layer
+
+**Roof and ceilings** in the Layers section hides the roof and ceiling slabs in 3D. Untick it and raise the cut height to see sloped wall tops from above. The setting is remembered.
+
 ### Keyboard navigation
 
-In the 3D view: **W/S** move forward and back, **A/D** slide left and right, **Q/E** turn the view around the point you're looking at, and **R/F** zoom in and out. Hold Shift for triple speed. Movement follows the camera's heading along the ground. A key press takes over from a camera preset that is still moving. The keys are ignored while you type in a field and don't work in the floor plan.
+In the 3D view: **W/S** move forward and back, **A/D** slide left and right, **Q/E** turn the view around the point you're looking at, **R/F** zoom in and out, and **Z/X** raise and lower the camera. Hold Shift for triple speed. Movement follows the camera's heading along the ground. A key press takes over from a camera preset that is still moving. The keys are ignored while you type in a field and don't work in the floor plan.
 
 ### Remembered settings
 
